@@ -26,8 +26,19 @@ const (
 	StateFailed  State = "failed"
 )
 
+// Kind distinguishes the two job types that share the single FIFO queue: a
+// validation pass (analysis only) and a full generation. Both serialize through
+// the same worker, so global queue visibility is identical for either.
+type Kind string
+
+const (
+	KindGenerate Kind = "generate"
+	KindValidate Kind = "validate"
+)
+
 type Job struct {
 	ID         string
+	Kind       Kind
 	State      State
 	Req        contract.GenerateRequest
 	Result     *contract.Result
@@ -55,6 +66,7 @@ type Manager struct {
 	ch         chan *Job
 	eta        *eta.Tracker
 	runner     Runner
+	validator  Runner
 	genTimeout time.Duration
 	retain     int
 	onChange   func()
@@ -65,7 +77,8 @@ type Config struct {
 	GenTimeout time.Duration // per-job hard timeout
 	Retain     int           // finished jobs kept for result/export retrieval
 	ETA        *eta.Tracker
-	Runner     Runner
+	Runner     Runner // handles KindGenerate
+	Validator  Runner // handles KindValidate
 	OnChange   func() // invoked after every state transition (drives SSE)
 }
 
@@ -84,6 +97,7 @@ func New(cfg Config) *Manager {
 		ch:         make(chan *Job, cfg.Buffer),
 		eta:        cfg.ETA,
 		runner:     cfg.Runner,
+		validator:  cfg.Validator,
 		genTimeout: cfg.GenTimeout,
 		retain:     cfg.Retain,
 		onChange:   cfg.OnChange,
@@ -96,10 +110,12 @@ func (m *Manager) Start(ctx context.Context) {
 	go m.worker(ctx)
 }
 
-// Submit enqueues a job and returns it in StateQueued, or ErrQueueFull.
-func (m *Manager) Submit(req contract.GenerateRequest) (*Job, error) {
+// Submit enqueues a job of the given kind and returns it in StateQueued, or
+// ErrQueueFull. Both kinds share the one FIFO queue and single worker.
+func (m *Manager) Submit(kind Kind, req contract.GenerateRequest) (*Job, error) {
 	job := &Job{
 		ID:         newID(),
+		Kind:       kind,
 		State:      StateQueued,
 		Req:        req,
 		EnqueuedAt: time.Now(),
@@ -145,8 +161,13 @@ func (m *Manager) runOne(ctx context.Context, job *Job) {
 	m.mu.Unlock()
 	m.onChange()
 
+	run := m.runner
+	if job.Kind == KindValidate && m.validator != nil {
+		run = m.validator
+	}
+
 	jobCtx, cancel := context.WithTimeout(ctx, m.genTimeout)
-	res, err := m.runner(jobCtx, job.Req)
+	res, err := run(jobCtx, job.Req)
 	cancel()
 
 	m.mu.Lock()

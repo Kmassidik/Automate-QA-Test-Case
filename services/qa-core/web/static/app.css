@@ -114,6 +114,8 @@ th { color: var(--muted); font-weight: 600; }
 
 /* 13-col QA test-case table (mirrors the QA CSV). Scrolls horizontally on
    narrow screens; multi-line cells (steps, preconditions) keep their breaks. */
+.warn { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; font-size: 13px; }
+
 .table-scroll { overflow-x: auto; }
 .tc-table { font-size: 12px; min-width: 1100px; }
 .tc-table th { white-space: nowrap; }

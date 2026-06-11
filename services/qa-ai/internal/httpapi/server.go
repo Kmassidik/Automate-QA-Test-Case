@@ -32,6 +32,7 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("POST /generate", s.handleGenerate)
+	mux.HandleFunc("POST /validate", s.handleValidate)
 	return mux
 }
 
@@ -68,18 +69,50 @@ func readinessStatus(s readiness.State) string {
 }
 
 func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
+	req, ok := s.decodeAndGate(w, r)
+	if !ok {
+		return
+	}
+	start := time.Now()
+	res, err := s.gen.Generate(r.Context(), req)
+	if err != nil {
+		s.writeGenErr(w, "generate", err, start)
+		return
+	}
+	s.log.Info("generate ok", "dur", time.Since(start), "test_cases", len(res.TestCases))
+	writeJSON(w, http.StatusOK, res)
+}
+
+// handleValidate is step 1 of the two-step flow: analysis only, no test cases.
+func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
+	req, ok := s.decodeAndGate(w, r)
+	if !ok {
+		return
+	}
+	start := time.Now()
+	res, err := s.gen.Validate(r.Context(), req)
+	if err != nil {
+		s.writeGenErr(w, "validate", err, start)
+		return
+	}
+	s.log.Info("validate ok", "dur", time.Since(start), "features", len(res.RequirementAnalysis))
+	writeJSON(w, http.StatusOK, res)
+}
+
+// decodeAndGate decodes the request, enforces a non-empty requirement, and fails
+// fast with the warmup's actionable reason if the model isn't ready. Shared by
+// both /generate and /validate. Returns ok=false (after writing the response)
+// when the caller should stop.
+func (s *Server) decodeAndGate(w http.ResponseWriter, r *http.Request) (contract.GenerateRequest, bool) {
 	var req contract.GenerateRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request body: " + err.Error()})
-		return
+		return req, false
 	}
 	if len(req.Requirement) == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "requirement is required"})
-		return
+		return req, false
 	}
-
-	// Fail fast with the warmup's actionable reason instead of attempting a call
-	// that will just time out against a missing daemon/model.
 	if !s.rd.Ready() {
 		snap := s.rd.Snapshot()
 		msg := snap.Detail
@@ -87,24 +120,20 @@ func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
 			msg = "Model is still downloading (" + snap.Progress + "). Please retry shortly."
 		}
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": msg, "state": snap.State})
-		return
+		return req, false
 	}
+	return req, true
+}
 
-	start := time.Now()
-	res, err := s.gen.Generate(r.Context(), req)
-	if err != nil {
-		// Retry-exhaustion is a 422 (we understood the request, the model failed
-		// to comply); transport failures are 502 (upstream Ollama problem).
-		status := http.StatusBadGateway
-		if errors.Is(err, generate.ErrExhausted) {
-			status = http.StatusUnprocessableEntity
-		}
-		s.log.Error("generate failed", "err", err, "dur", time.Since(start))
-		writeJSON(w, status, map[string]any{"error": err.Error()})
-		return
+// writeGenErr maps a generate/validate failure to a status: retry-exhaustion is a
+// 422 (request understood, model failed to comply); transport failures are 502.
+func (s *Server) writeGenErr(w http.ResponseWriter, op string, err error, start time.Time) {
+	status := http.StatusBadGateway
+	if errors.Is(err, generate.ErrExhausted) {
+		status = http.StatusUnprocessableEntity
 	}
-	s.log.Info("generate ok", "dur", time.Since(start), "test_cases", len(res.TestCases))
-	writeJSON(w, http.StatusOK, res)
+	s.log.Error(op+" failed", "err", err, "dur", time.Since(start))
+	writeJSON(w, status, map[string]any{"error": err.Error()})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

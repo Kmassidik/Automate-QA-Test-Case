@@ -77,22 +77,7 @@ func Build(r contract.GenerateRequest) (system, user string) {
 
 	var b strings.Builder
 	b.WriteString("Generate QA artifacts for the following requirement.\n\n")
-
-	b.WriteString("REQUIREMENT:\n")
-	b.WriteString(strings.TrimSpace(r.Requirement))
-	b.WriteString("\n\nGENERATION OPTIONS:\n")
-	writeKV(&b, "Application type", r.ApplicationType)
-	writeKV(&b, "Detail level", orDefault(r.DetailLevel, "Standard"))
-	writeKV(&b, "Test types", joinOr(r.TestTypes, "Functional"))
-	writeKV(&b, "Test design techniques", joinOr(r.TestDesignTechniques, "Equivalence Partitioning"))
-	writeKV(&b, "Output format", orDefault(r.OutputFormat, "step-by-step"))
-	writeKV(&b, "Priority/Severity scheme", orDefault(r.PriorityScheme, "P0-P3"))
-	writeKV(&b, "Include preconditions", yesNo(r.IncludePreconditions))
-	writeKV(&b, "Include test data suggestions", yesNo(r.IncludeTestData))
-	writeKV(&b, "Generate edge cases", yesNo(r.GenerateEdgeCases))
-	if strings.TrimSpace(r.PlatformMatrix) != "" {
-		writeKV(&b, "Platform/device/browser matrix", r.PlatformMatrix)
-	}
+	writeRequirementAndOptions(&b, r)
 
 	b.WriteString("\nINSTRUCTIONS:\n")
 	b.WriteString("- Run a requirement breakdown FIRST, then derive acceptance criteria, then test cases.\n")
@@ -116,6 +101,55 @@ func Build(r contract.GenerateRequest) (system, user string) {
 	b.WriteString(schema(apiBlock))
 
 	return System, b.String()
+}
+
+// validationSchema is the smaller shape the validation pass returns: analysis +
+// ambiguities + requirement health only (no test cases/coverage/traceability).
+const validationSchema = `{
+  "requirement_analysis": [
+    { "feature": "string", "sub_requirements": ["string"], "risk_level": "Critical|High|Medium|Low" }
+  ],
+  "ambiguities": [ { "location": "string", "issue": "string", "suggestion": "string", "severity": "Critical|High|Medium|Low" } ],
+  "requirement_health": { "score": 0, "rating": "string", "deductions": [ { "reason": "string", "points": -10 } ] },
+  "missing_areas": ["string"]
+}`
+
+// BuildValidation returns (system, user) prompts for step 1 of the two-step flow:
+// analyze/validate the requirement only, before any test cases are written.
+func BuildValidation(r contract.GenerateRequest) (system, user string) {
+	var b strings.Builder
+	b.WriteString("Validate and analyze the following requirement BEFORE any test cases are written.\n\n")
+	writeRequirementAndOptions(&b, r)
+	b.WriteString("\nINSTRUCTIONS:\n")
+	b.WriteString("- Break the requirement into features and sub-requirements with risk levels.\n")
+	b.WriteString("- Flag every ambiguity with a severity (Critical/High/Medium/Low).\n")
+	b.WriteString("- Score Requirement Health per the policy and list itemized deductions.\n")
+	b.WriteString("- Do NOT generate test cases, coverage, or traceability — analysis only.\n")
+	b.WriteString("\nReturn ONLY this JSON shape (exact keys):\n")
+	b.WriteString(validationSchema)
+	return System, b.String()
+}
+
+// writeRequirementAndOptions writes the shared REQUIREMENT + GENERATION OPTIONS
+// block used by both Build and BuildValidation.
+func writeRequirementAndOptions(b *strings.Builder, r contract.GenerateRequest) {
+	b.WriteString("REQUIREMENT:\n")
+	b.WriteString(strings.TrimSpace(r.Requirement))
+	b.WriteString("\n\nGENERATION OPTIONS:\n")
+	writeKV(b, "Application type", r.ApplicationType)
+	writeKV(b, "Detail level", orDefault(r.DetailLevel, "Detailed"))
+	writeKV(b, "Test types", joinOr(r.TestTypes, "Positive, Negative, Edge case"))
+	if len(r.TestDesignTechniques) > 0 {
+		writeKV(b, "Test design techniques", strings.Join(r.TestDesignTechniques, ", "))
+	}
+	writeKV(b, "Output format", orDefault(r.OutputFormat, "step-by-step"))
+	writeKV(b, "Priority/Severity scheme", orDefault(r.PriorityScheme, "P0-P3"))
+	writeKV(b, "Include preconditions", yesNo(r.IncludePreconditions))
+	writeKV(b, "Include test data suggestions", yesNo(r.IncludeTestData))
+	writeKV(b, "Generate edge cases", yesNo(r.GenerateEdgeCases))
+	if strings.TrimSpace(r.PlatformMatrix) != "" {
+		writeKV(b, "Platform/device/browser matrix", r.PlatformMatrix)
+	}
 }
 
 func writeKV(b *strings.Builder, k, v string) {

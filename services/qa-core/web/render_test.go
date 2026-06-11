@@ -75,6 +75,18 @@ func TestRenderAllTemplates(t *testing.T) {
 			t.Errorf("result.html missing %q", want)
 		}
 	}
+
+	vout := exec(t, p, "validation.html", map[string]any{
+		"ID":     "job2",
+		"Result": sampleResult(),
+		"Req":    contract.GenerateRequest{Requirement: "reset password", ApplicationType: "Web", TestTypes: []string{"Positive", "Negative"}, IncludePreconditions: true},
+	})
+	// Must show analysis + carry the form forward to /generate as hidden inputs.
+	for _, want := range []string{"Requirement breakdown", "hx-post=\"/generate\"", "name=\"test_types\" value=\"Positive\"", "Generate test cases"} {
+		if !strings.Contains(vout, want) {
+			t.Errorf("validation.html missing %q", want)
+		}
+	}
 }
 
 func sampleResult() *contract.Result {

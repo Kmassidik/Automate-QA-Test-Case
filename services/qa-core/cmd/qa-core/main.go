@@ -44,6 +44,7 @@ func main() {
 		GenTimeout: cfg.aiTimeout,
 		ETA:        etaTracker,
 		Runner:     ai.Generate,
+		Validator:  ai.Validate,
 		OnChange:   bc.Publish,
 	})
 	q.Start(ctx)

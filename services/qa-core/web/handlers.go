@@ -58,6 +58,7 @@ func (s *Server) Routes() http.Handler {
 	gated := http.NewServeMux()
 	gated.HandleFunc("GET /{$}", s.handleIndex)
 	gated.HandleFunc("GET /logout", s.handleLogout)
+	gated.HandleFunc("POST /validate", s.handleValidate)
 	gated.HandleFunc("POST /generate", s.handleGenerate)
 	gated.HandleFunc("GET /events", s.handleEvents)
 	gated.HandleFunc("GET /result/{id}", s.handleResult)
@@ -107,7 +108,18 @@ func (s *Server) handleAccessSubmit(w http.ResponseWriter, r *http.Request) {
 
 // ----- generation -----
 
+// handleValidate is step 1 of the two-step flow (analysis only); handleGenerate
+// is step 2 (full generation). Both enqueue onto the same FIFO queue, so every
+// logged-in user's dashboard sees the live busy/queue state regardless of kind.
+func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
+	s.submitForm(w, r, queue.KindValidate)
+}
+
 func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
+	s.submitForm(w, r, queue.KindGenerate)
+}
+
+func (s *Server) submitForm(w http.ResponseWriter, r *http.Request, kind queue.Kind) {
 	if err := r.ParseForm(); err != nil {
 		s.renderPartialError(w, "Could not read the form.")
 		return
@@ -118,7 +130,7 @@ func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := s.q.Submit(req)
+	job, err := s.q.Submit(kind, req)
 	if err != nil {
 		s.renderPartialError(w, err.Error())
 		return
@@ -139,6 +151,14 @@ func (s *Server) handleResult(w http.ResponseWriter, r *http.Request) {
 	}
 	switch job.State {
 	case queue.StateDone:
+		if job.Kind == queue.KindValidate {
+			s.tmpl.render(w, "validation.html", map[string]any{
+				"ID":     job.ID,
+				"Result": job.Result,
+				"Req":    job.Req,
+			})
+			return
+		}
 		opt := export.Options{PriorityScheme: job.Req.PriorityScheme, Requirement: job.Req.Requirement}
 		header, rows := export.QARepositoryRows(*job.Result, opt)
 		s.tmpl.render(w, "result.html", map[string]any{

@@ -32,7 +32,7 @@ func TestOneAtATime(t *testing.T) {
 	m.Start(ctx)
 
 	for i := 0; i < 12; i++ {
-		if _, err := m.Submit(contract.GenerateRequest{Requirement: fmt.Sprintf("r%d", i)}); err != nil {
+		if _, err := m.Submit(KindGenerate, contract.GenerateRequest{Requirement: fmt.Sprintf("r%d", i)}); err != nil {
 			t.Fatalf("submit: %v", err)
 		}
 	}
@@ -62,7 +62,7 @@ func TestQueueFull(t *testing.T) {
 	// 1 picked up by worker (blocks), 1 fills the buffer, rest must be rejected.
 	var rejected int
 	for i := 0; i < 10; i++ {
-		if _, err := m.Submit(contract.GenerateRequest{Requirement: "x"}); err == ErrQueueFull {
+		if _, err := m.Submit(KindGenerate, contract.GenerateRequest{Requirement: "x"}); err == ErrQueueFull {
 			rejected++
 		}
 		time.Sleep(time.Millisecond)
@@ -86,13 +86,42 @@ func TestJobViewPosition(t *testing.T) {
 	defer close(block)
 	m.Start(ctx)
 
-	_, _ = m.Submit(contract.GenerateRequest{Requirement: "running"})
+	_, _ = m.Submit(KindGenerate, contract.GenerateRequest{Requirement: "running"})
 	time.Sleep(5 * time.Millisecond)
-	j2, _ := m.Submit(contract.GenerateRequest{Requirement: "second"})
+	j2, _ := m.Submit(KindGenerate, contract.GenerateRequest{Requirement: "second"})
 
 	view, ok := m.JobView(j2.ID)
 	if !ok || view.State != StateQueued || view.Position != 1 {
 		t.Fatalf("view = %+v, want queued at position 1", view)
+	}
+}
+
+// TestValidateKindRoutesToValidator asserts a KindValidate job runs the
+// Validator while KindGenerate runs the Runner — both through the one queue.
+func TestValidateKindRoutesToValidator(t *testing.T) {
+	var gen, val int32
+	runner := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+		atomic.AddInt32(&gen, 1)
+		return contract.Result{TestCases: []contract.TestCase{{ID: "TC-1"}}}, nil
+	}
+	validator := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+		atomic.AddInt32(&val, 1)
+		return contract.Result{RequirementAnalysis: []contract.RequirementFeature{{Feature: "f"}}}, nil
+	}
+	m := New(Config{Buffer: 8, GenTimeout: time.Second, ETA: eta.New(20), Runner: runner, Validator: validator})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m.Start(ctx)
+
+	_, _ = m.Submit(KindValidate, contract.GenerateRequest{Requirement: "x"})
+	_, _ = m.Submit(KindGenerate, contract.GenerateRequest{Requirement: "y"})
+
+	waitUntil(t, 2*time.Second, func() bool {
+		_, ok := lastDone(m, 2)
+		return ok
+	})
+	if atomic.LoadInt32(&val) != 1 || atomic.LoadInt32(&gen) != 1 {
+		t.Fatalf("validator=%d generate=%d, want 1 each", val, gen)
 	}
 }
 

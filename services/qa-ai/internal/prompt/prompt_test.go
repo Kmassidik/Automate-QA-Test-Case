@@ -26,9 +26,19 @@ func TestBuildIncludesAPIBlockForAPI(t *testing.T) {
 
 func TestBuildInjectsDefaults(t *testing.T) {
 	_, user := Build(contract.GenerateRequest{Requirement: "reset password", ApplicationType: "Web"})
-	for _, want := range []string{"Detail level: Standard", "Output format: step-by-step", "reset password"} {
+	for _, want := range []string{"Detail level: Detailed", "Output format: step-by-step", "reset password"} {
 		if !strings.Contains(user, want) {
 			t.Errorf("prompt missing %q", want)
 		}
+	}
+}
+
+func TestBuildValidationIsAnalysisOnly(t *testing.T) {
+	_, user := BuildValidation(contract.GenerateRequest{Requirement: "reset password", ApplicationType: "Web"})
+	if !strings.Contains(user, "requirement_analysis") || !strings.Contains(user, "requirement_health") {
+		t.Error("validation prompt must request analysis + health")
+	}
+	if strings.Contains(user, `"test_cases":`) || strings.Contains(user, `"coverage_matrix":`) {
+		t.Error("validation prompt must NOT request test cases or coverage")
 	}
 }

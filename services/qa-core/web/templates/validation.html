@@ -1,0 +1,74 @@
+{{define "validation.html"}}
+{{$r := .Result}}
+{{$req := .Req}}
+<div id="results">
+  <div class="card">
+    <div class="header" style="margin-bottom:14px;">
+      <h2 style="margin:0;">Requirement analysis</h2>
+      <span class="hint">Step 1 of 2 — review before generating</span>
+    </div>
+
+    <!-- Requirement Health -->
+    {{with $r.RequirementHealth}}
+    <h3 style="margin-top:0;">Requirement Health</h3>
+    <div class="score">
+      <span class="num">{{.Score}}</span><span class="muted">/ 100</span>
+      <div class="bar"><span style="width:{{.Score}}%"></span></div>
+    </div>
+    <div class="muted" style="margin-bottom:6px;">{{.Rating}}</div>
+    {{if .Deductions}}<ul style="margin-top:4px;">{{range .Deductions}}<li>{{.Reason}} <span class="muted">({{.Points}})</span></li>{{end}}</ul>{{end}}
+    {{if eq .Rating "Not Test Ready"}}
+    <div class="warn">⚠️ This requirement scored <strong>Not Test Ready</strong>. Generated test cases may be incomplete — consider refining the requirement first, or generate anyway.</div>
+    {{end}}
+    {{end}}
+    {{if $r.MissingAreas}}<p style="margin-bottom:0;"><strong>Missing areas:</strong> {{range $i, $a := $r.MissingAreas}}{{if $i}}, {{end}}{{$a}}{{end}}</p>{{end}}
+  </div>
+
+  <!-- Requirement breakdown -->
+  {{if $r.RequirementAnalysis}}
+  <div class="card">
+    <h2>Requirement breakdown</h2>
+    {{range $r.RequirementAnalysis}}
+    <h3>{{.Feature}} <span class="badge {{.RiskLevel}}">{{.RiskLevel}}</span></h3>
+    <div class="pill-list">{{range .SubRequirements}}<span class="badge">{{.}}</span>{{end}}</div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <!-- Ambiguities -->
+  {{if $r.Ambiguities}}
+  <div class="card">
+    <h2>Ambiguities</h2>
+    <table>
+      <thead><tr><th>Severity</th><th>Location</th><th>Issue</th><th>Suggestion</th></tr></thead>
+      <tbody>
+      {{range $r.Ambiguities}}
+        <tr><td><span class="badge {{.Severity}}">{{.Severity}}</span></td><td>{{.Location}}</td><td>{{.Issue}}</td><td>{{.Suggestion}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+
+  <!-- Proceed to generation (step 2) -->
+  <div class="card">
+    <h2 style="margin-top:0;">Generate test cases</h2>
+    <p class="muted">Reviewed the analysis? Generate the full test suite from this requirement — it joins the same one-at-a-time queue.</p>
+    <form hx-post="/generate" hx-target="#panel" hx-swap="innerHTML">
+      <input type="hidden" name="requirement" value="{{$req.Requirement}}">
+      <input type="hidden" name="application_type" value="{{$req.ApplicationType}}">
+      <input type="hidden" name="detail_level" value="{{$req.DetailLevel}}">
+      {{range $req.TestTypes}}<input type="hidden" name="test_types" value="{{.}}">{{end}}
+      {{range $req.TestDesignTechniques}}<input type="hidden" name="test_design_techniques" value="{{.}}">{{end}}
+      <input type="hidden" name="output_format" value="{{$req.OutputFormat}}">
+      <input type="hidden" name="priority_scheme" value="{{$req.PriorityScheme}}">
+      {{if $req.IncludePreconditions}}<input type="hidden" name="include_preconditions" value="1">{{end}}
+      {{if $req.IncludeTestData}}<input type="hidden" name="include_test_data" value="1">{{end}}
+      {{if $req.GenerateEdgeCases}}<input type="hidden" name="generate_edge_cases" value="1">{{end}}
+      <input type="hidden" name="platform_matrix" value="{{$req.PlatformMatrix}}">
+      <button type="submit">Generate test cases →</button>
+      <span class="hint" style="margin-left:10px;">Each generation takes ~30–90s · you'll see your place in line.</span>
+    </form>
+  </div>
+</div>
+{{end}}

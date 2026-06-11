@@ -26,15 +26,26 @@ func New(baseURL string, timeout time.Duration) *Client {
 	}
 }
 
-// Generate posts the form to qa-ai and returns the validated result. It honors
-// ctx (the per-job timeout) in addition to the client timeout.
+// Generate posts the form to qa-ai's /generate and returns the full result.
 func (c *Client) Generate(ctx context.Context, req contract.GenerateRequest) (contract.Result, error) {
+	return c.post(ctx, "/generate", req)
+}
+
+// Validate posts to qa-ai's /validate (step 1 of the two-step flow) and returns a
+// partial result (analysis + ambiguities + requirement health only).
+func (c *Client) Validate(ctx context.Context, req contract.GenerateRequest) (contract.Result, error) {
+	return c.post(ctx, "/validate", req)
+}
+
+// post is the shared request path. It honors ctx (the per-job timeout) in
+// addition to the client timeout, and surfaces qa-ai's error body verbatim.
+func (c *Client) post(ctx context.Context, path string, req contract.GenerateRequest) (contract.Result, error) {
 	buf, err := json.Marshal(req)
 	if err != nil {
 		return contract.Result{}, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/generate", bytes.NewReader(buf))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(buf))
 	if err != nil {
 		return contract.Result{}, fmt.Errorf("build request: %w", err)
 	}
