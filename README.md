@@ -92,6 +92,29 @@ ACCESS_CODE=your-shared-code docker compose up -d --build
 
 `help · dev · build · test · lint · tidy · clean` — consistent across both services.
 
+## Implementation notes
+
+A few decisions the PRD left to the build:
+
+- **Exports run server-side** (in `qa-core`), not client-side. The canonical
+  result JSON and the server-clamped scores already live in `qa-core`, so the
+  CSV/Markdown/Jira transforms are pure functions over that — no duplicated
+  logic in the browser.
+- **Frontend: vendored htmx + a hand-authored shadcn-style stylesheet** instead
+  of a Tailwind build. This honors the locked htmx choice and the shadcn look
+  while keeping the tool *fully offline* (no CDN) and *zero-build* — both PRD
+  values. htmx is vendored at `web/static/htmx.min.js`; the CSS is `web/static/app.css`.
+- **Priority/Severity derivation:** the LLM contract gives test cases a `risk`
+  but no explicit priority/severity. The QA CSV derives Priority from risk
+  (Critical→P0 … Low→P3 under the P0–P3 scheme; risk vocabulary kept as-is under
+  Critical–Low) and Severity from the max severity of the ACs a test case covers.
+- **Requirement IDs** in the QA CSV (`RP-n`) are synthesized from the coverage
+  matrix, since the contract has no explicit per-test-case requirement ID.
+
+The full request flow (access gate → submit → live queue status → result →
+all three exports) is verified end-to-end against a stub generator; swap in a
+real Ollama + Qwen2.5 7B and it's production-ready per the PRD.
+
 ## License
 
 Internal tool. All inference is local; no requirement text leaves the machine.
