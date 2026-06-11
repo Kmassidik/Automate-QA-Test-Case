@@ -138,6 +138,39 @@ func humanSize(b int64) string {
 	}
 }
 
+// ----- resource widget -----
+
+// StatsView is the live resource widget (template seed + SSE `resources` object).
+// On Apple Silicon there's no clean GPU-% API, so LoadedModel (name + VRAM split
+// from Ollama /api/ps) is the honest GPU signal.
+type StatsView struct {
+	OK          bool   `json:"ok"`
+	CPUPercent  int    `json:"cpu_percent"`
+	MemPercent  int    `json:"mem_percent"`
+	MemUsed     string `json:"mem_used"`
+	MemTotal    string `json:"mem_total"`
+	LoadedModel string `json:"loaded_model"` // "name · 4.7 GB (100% GPU)" or "" when none loaded
+}
+
+func statsView(s aiclient.Stats) StatsView {
+	v := StatsView{OK: s.Reachable, CPUPercent: int(s.CPUPercent + 0.5)}
+	if s.MemTotal > 0 {
+		v.MemPercent = int(float64(s.MemUsed)/float64(s.MemTotal)*100 + 0.5)
+		v.MemUsed = humanSize(s.MemUsed)
+		v.MemTotal = humanSize(s.MemTotal)
+	}
+	if len(s.Loaded) > 0 {
+		m := s.Loaded[0]
+		label := m.Name
+		if m.Size > 0 {
+			gpuPct := int(float64(m.SizeVRAM)/float64(m.Size)*100 + 0.5)
+			label += fmt.Sprintf(" · %s (%d%% on GPU)", humanSize(m.Size), gpuPct)
+		}
+		v.LoadedModel = label
+	}
+	return v
+}
+
 // ----- static form option lists (PRD §5.1) -----
 
 type Option struct{ Value, Label string }

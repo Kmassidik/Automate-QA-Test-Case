@@ -190,6 +190,39 @@ func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
 	return tags.Models, nil
 }
 
+// LoadedModel is one model currently resident in Ollama (/api/ps), with how much
+// of it is on the GPU (size_vram) vs total (size).
+type LoadedModel struct {
+	Name     string `json:"name"`
+	Size     int64  `json:"size"`
+	SizeVRAM int64  `json:"size_vram"`
+}
+
+// PS returns the models Ollama currently has loaded in memory (/api/ps). This is
+// the dependency-free, cross-platform signal for "what's using the GPU/RAM" —
+// crucial on Apple Silicon where there's no clean GPU-utilization API.
+func (c *Client) PS(ctx context.Context) ([]LoadedModel, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/ps", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ollama /api/ps status %d", resp.StatusCode)
+	}
+	var ps struct {
+		Models []LoadedModel `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ps); err != nil {
+		return nil, fmt.Errorf("decode ps: %w", err)
+	}
+	return ps.Models, nil
+}
+
 // PullProgress is one streamed status update during a model pull.
 type PullProgress struct {
 	Status    string `json:"status"`

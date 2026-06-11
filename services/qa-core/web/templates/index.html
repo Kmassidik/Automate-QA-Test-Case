@@ -35,6 +35,14 @@
     <span id="status-label">{{.Status.Label}}</span>
   </div>
 
+  <!-- Live resource usage (SSE). GPU% isn't available on Apple Silicon, so we
+       show the loaded model + its VRAM split as the honest GPU signal. -->
+  <div id="resources" class="res-bar"{{if not .Resources.OK}} hidden{{end}}>
+    <span class="res-item">CPU <b id="res-cpu">{{.Resources.CPUPercent}}</b>%</span>
+    <span class="res-item">RAM <b id="res-mem">{{.Resources.MemPercent}}</b>% <span class="muted" id="res-mem-detail">{{if .Resources.MemTotal}}{{.Resources.MemUsed}} / {{.Resources.MemTotal}}{{end}}</span></span>
+    <span class="res-item" id="res-model">{{if .Resources.LoadedModel}}🧠 {{.Resources.LoadedModel}}{{else}}no model loaded{{end}}</span>
+  </div>
+
   <div id="panel">
     <div class="card">
       <h2>New requirement</h2>
@@ -113,6 +121,20 @@
       if (d.backend) {
         const bl = document.getElementById("backend-label");
         if (bl) { bl.textContent = d.backend.label; bl.dataset.state = d.backend.state; }
+      }
+
+      // Live resource usage: CPU% · RAM% · loaded model (VRAM split).
+      if (d.resources) {
+        const r = d.resources;
+        const box = document.getElementById("resources");
+        if (box) {
+          box.hidden = !r.ok;
+          const set = function (id, v) { const el = document.getElementById(id); if (el) el.textContent = v; };
+          set("res-cpu", r.cpu_percent);
+          set("res-mem", r.mem_percent);
+          set("res-mem-detail", (r.mem_used && r.mem_total) ? (r.mem_used + " / " + r.mem_total) : "");
+          set("res-model", r.loaded_model ? ("🧠 " + r.loaded_model) : "no model loaded");
+        }
       }
     });
   })();

@@ -111,6 +111,45 @@ func (c *Client) Models(ctx context.Context) (ModelList, error) {
 	return ml, nil
 }
 
+// LoadedModel mirrors qa-ai's /stats loaded-model entry (Ollama /api/ps).
+type LoadedModel struct {
+	Name     string `json:"name"`
+	Size     int64  `json:"size"`
+	SizeVRAM int64  `json:"size_vram"`
+}
+
+// Stats is qa-ai's /stats body: host CPU/RAM and the models Ollama has loaded.
+type Stats struct {
+	CPUPercent float64       `json:"cpu_percent"`
+	MemUsed    int64         `json:"mem_used"`
+	MemTotal   int64         `json:"mem_total"`
+	Loaded     []LoadedModel `json:"loaded"`
+	Platform   string        `json:"platform"`
+	Reachable  bool          `json:"-"` // set by the caller: did the request succeed
+}
+
+// Stats fetches qa-ai's /stats. Unreachable qa-ai yields Reachable=false.
+func (c *Client) Stats(ctx context.Context) Stats {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/stats", nil)
+	if err != nil {
+		return Stats{}
+	}
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return Stats{}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return Stats{}
+	}
+	var s Stats
+	if err := json.NewDecoder(resp.Body).Decode(&s); err != nil {
+		return Stats{}
+	}
+	s.Reachable = true
+	return s
+}
+
 // Health probes qa-ai's /healthz (which in turn probes Ollama).
 func (c *Client) Health(ctx context.Context) error {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/healthz", nil)

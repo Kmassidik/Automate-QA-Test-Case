@@ -14,6 +14,9 @@ import (
 	"qa-ai/internal/ollama"
 	"qa-ai/internal/platform"
 	"qa-ai/internal/readiness"
+
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type Server struct {
@@ -32,9 +35,30 @@ func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("GET /models", s.handleModels)
+	mux.HandleFunc("GET /stats", s.handleStats)
 	mux.HandleFunc("POST /generate", s.handleGenerate)
 	mux.HandleFunc("POST /validate", s.handleValidate)
 	return mux
+}
+
+// handleStats reports host CPU/RAM (gopsutil, cross-platform) plus the models
+// Ollama has loaded (with VRAM split). On Apple Silicon there's no clean GPU-%
+// API, so loaded-model VRAM is the honest GPU signal. NOTE: when qa-ai runs in a
+// container, CPU/RAM reflect the container's cgroup view, not the host.
+func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	body := map[string]any{"platform": s.plat.Label()}
+
+	if p, err := cpu.Percent(0, false); err == nil && len(p) > 0 {
+		body["cpu_percent"] = p[0]
+	}
+	if vm, err := mem.VirtualMemory(); err == nil {
+		body["mem_used"] = vm.Used
+		body["mem_total"] = vm.Total
+	}
+	if loaded, err := s.llm.PS(r.Context()); err == nil {
+		body["loaded"] = loaded
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // handleModels lists installed Ollama models for the picker, marking the

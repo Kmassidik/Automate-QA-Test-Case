@@ -92,11 +92,12 @@ func (s *Server) Routes() http.Handler {
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	snap := s.q.Snapshot()
 	s.tmpl.render(w, "index.html", map[string]any{
-		"Status":   statusView(snap),
-		"Backend":  backendView(s.be.Current()),
-		"Examples": examples,
-		"Options":  formOptions,
-		"Models":   s.modelView(r.Context()),
+		"Status":    statusView(snap),
+		"Backend":   backendView(s.be.Current()),
+		"Examples":  examples,
+		"Options":   formOptions,
+		"Models":    s.modelView(r.Context()),
+		"Resources": statsView(s.be.CurrentStats()),
 	})
 }
 
@@ -264,8 +265,9 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) writeEvent(w http.ResponseWriter, flusher http.Flusher, jobID string) {
 	payload := map[string]any{
-		"global":  statusView(s.q.Snapshot()),
-		"backend": backendView(s.be.Current()),
+		"global":    statusView(s.q.Snapshot()),
+		"backend":   backendView(s.be.Current()),
+		"resources": statsView(s.be.CurrentStats()),
 	}
 	if jobID != "" {
 		if view, ok := s.q.JobView(jobID); ok {

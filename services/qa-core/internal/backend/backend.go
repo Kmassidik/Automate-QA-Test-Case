@@ -17,6 +17,7 @@ type Monitor struct {
 	ai       *aiclient.Client
 	mu       sync.RWMutex
 	cur      aiclient.BackendStatus
+	curStats aiclient.Stats
 	onChange func()
 }
 
@@ -52,19 +53,27 @@ func (m *Monitor) poll(ctx context.Context) {
 	cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	s := m.ai.Status(cctx)
+	stats := m.ai.Stats(cctx)
 
 	m.mu.Lock()
-	changed := s != m.cur
 	m.cur = s
+	m.curStats = stats
 	m.mu.Unlock()
 
-	if changed {
-		m.onChange() // a state change (e.g. pull % tick, became ready) → push to browsers
-	}
+	// Push every poll: backend state may change (pull %, became ready) and the
+	// resource stats (CPU/RAM/loaded model) update continuously, so the widget
+	// stays live without a refresh.
+	m.onChange()
 }
 
 func (m *Monitor) Current() aiclient.BackendStatus {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.cur
+}
+
+func (m *Monitor) CurrentStats() aiclient.Stats {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.curStats
 }
