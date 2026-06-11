@@ -54,11 +54,15 @@ type chatResponse struct {
 }
 
 // Chat sends a system+user prompt and returns the assistant's raw content.
-// format="json" asks Ollama to constrain output to valid JSON; we still validate
-// against the contract upstream because "valid JSON" != "contract-shaped JSON".
-func (c *Client) Chat(ctx context.Context, system, user string) (string, error) {
+// model selects the Ollama model; an empty model falls back to the configured
+// default. format="json" asks Ollama to constrain output to valid JSON; we still
+// validate against the contract upstream because "valid JSON" != "contract-shaped JSON".
+func (c *Client) Chat(ctx context.Context, model, system, user string) (string, error) {
+	if strings.TrimSpace(model) == "" {
+		model = c.model
+	}
 	reqBody := chatRequest{
-		Model: c.model,
+		Model: model,
 		Messages: []chatMessage{
 			{Role: "system", Content: system},
 			{Role: "user", Content: user},
@@ -154,6 +158,36 @@ func (c *Client) HasModel(ctx context.Context) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// ModelInfo is one installed model from /api/tags.
+type ModelInfo struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"` // bytes on disk
+}
+
+// ListModels returns the models installed in Ollama (/api/tags), newest first as
+// Ollama returns them. Used to populate the model picker.
+func (c *Client) ListModels(ctx context.Context) ([]ModelInfo, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/tags", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("ollama /api/tags status %d", resp.StatusCode)
+	}
+	var tags struct {
+		Models []ModelInfo `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tags); err != nil {
+		return nil, fmt.Errorf("decode tags: %w", err)
+	}
+	return tags.Models, nil
 }
 
 // PullProgress is one streamed status update during a model pull.

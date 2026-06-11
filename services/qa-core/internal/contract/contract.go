@@ -7,6 +7,7 @@ package contract
 // GenerateRequest is the input form (PRD §5.1) sent by qa-core to qa-ai.
 type GenerateRequest struct {
 	Requirement          string   `json:"requirement"`
+	Model                string   `json:"model,omitempty"`        // active Ollama model; empty => qa-ai's configured default
 	ApplicationType      string   `json:"application_type"`       // Web · Mobile · API · Desktop · E-commerce · CMS · SaaS · Embedded
 	DetailLevel          string   `json:"detail_level"`           // Condensed · Standard · Detailed
 	TestTypes            []string `json:"test_types"`             // Functional · Regression · ...

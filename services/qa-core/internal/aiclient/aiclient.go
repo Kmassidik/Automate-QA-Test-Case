@@ -77,6 +77,40 @@ func (c *Client) post(ctx context.Context, path string, req contract.GenerateReq
 	return res, nil
 }
 
+// ModelInfo is one installed model (from qa-ai's /models, which proxies Ollama).
+type ModelInfo struct {
+	Name string `json:"name"`
+	Size int64  `json:"size"` // bytes on disk
+}
+
+// ModelList is qa-ai's /models response: installed models plus qa-ai's default.
+type ModelList struct {
+	Default string      `json:"default"`
+	Models  []ModelInfo `json:"models"`
+}
+
+// Models fetches the installed model list for the picker. Best-effort: a down
+// backend yields an error the caller can degrade gracefully on.
+func (c *Client) Models(ctx context.Context) (ModelList, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/models", nil)
+	if err != nil {
+		return ModelList{}, err
+	}
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return ModelList{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ModelList{}, fmt.Errorf("qa-ai /models status %d", resp.StatusCode)
+	}
+	var ml ModelList
+	if err := json.NewDecoder(resp.Body).Decode(&ml); err != nil {
+		return ModelList{}, fmt.Errorf("decode models: %w", err)
+	}
+	return ml, nil
+}
+
 // Health probes qa-ai's /healthz (which in turn probes Ollama).
 func (c *Client) Health(ctx context.Context) error {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/healthz", nil)

@@ -31,9 +31,24 @@ func New(gen *generate.Generator, llm *ollama.Client, rd *readiness.Readiness, p
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.handleHealth)
+	mux.HandleFunc("GET /models", s.handleModels)
 	mux.HandleFunc("POST /generate", s.handleGenerate)
 	mux.HandleFunc("POST /validate", s.handleValidate)
 	return mux
+}
+
+// handleModels lists installed Ollama models for the picker, marking the
+// configured default so qa-core can seed its active-model setting.
+func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
+	models, err := s.llm.ListModels(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"default": s.llm.Model(),
+		"models":  models,
+	})
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {

@@ -39,7 +39,7 @@ func (g *Generator) Generate(ctx context.Context, req contract.GenerateRequest) 
 
 	var lastErr error
 	for attempt := 0; attempt <= g.maxRetries; attempt++ {
-		raw, err := g.llm.Chat(ctx, system, user)
+		raw, err := g.llm.Chat(ctx, req.Model, system, user)
 		if err != nil {
 			// Transport/timeout errors are not "bad JSON" — fail fast, don't burn retries.
 			return contract.Result{}, fmt.Errorf("llm call failed: %w", err)

@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"qa-core/internal/aiclient"
@@ -25,6 +26,23 @@ type Server struct {
 	ai     *aiclient.Client
 	be     *backend.Monitor
 	log    *slog.Logger
+
+	// activeModel is the global, user-chosen Ollama model applied to every job.
+	// Empty means "use qa-ai's configured default". Guarded by modelMu.
+	modelMu     sync.RWMutex
+	activeModel string
+}
+
+func (s *Server) getActiveModel() string {
+	s.modelMu.RLock()
+	defer s.modelMu.RUnlock()
+	return s.activeModel
+}
+
+func (s *Server) setActiveModel(m string) {
+	s.modelMu.Lock()
+	s.activeModel = m
+	s.modelMu.Unlock()
 }
 
 func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclient.Client, be *backend.Monitor, log *slog.Logger) (*Server, error) {
@@ -58,6 +76,7 @@ func (s *Server) Routes() http.Handler {
 	gated := http.NewServeMux()
 	gated.HandleFunc("GET /{$}", s.handleIndex)
 	gated.HandleFunc("GET /logout", s.handleLogout)
+	gated.HandleFunc("POST /model", s.handleSetModel)
 	gated.HandleFunc("POST /validate", s.handleValidate)
 	gated.HandleFunc("POST /generate", s.handleGenerate)
 	gated.HandleFunc("GET /events", s.handleEvents)
@@ -77,12 +96,41 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"Backend":  backendView(s.be.Current()),
 		"Examples": examples,
 		"Options":  formOptions,
+		"Models":   s.modelView(r.Context()),
 	})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	s.access.Revoke(w)
 	http.Redirect(w, r, "/access", http.StatusSeeOther)
+}
+
+// handleSetModel sets the global active model (applies to every subsequent job).
+func (s *Server) handleSetModel(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form", http.StatusBadRequest)
+		return
+	}
+	s.setActiveModel(r.FormValue("model"))
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// modelView builds the model-picker view: installed models + the active choice
+// (the user's global selection, or qa-ai's default when unset). Best-effort —
+// a down backend yields OK=false and an empty list.
+func (s *Server) modelView(ctx context.Context) ModelsView {
+	cctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ml, err := s.ai.Models(cctx)
+	active := s.getActiveModel()
+	if active == "" {
+		active = ml.Default
+	}
+	v := ModelsView{Active: active, OK: err == nil}
+	for _, m := range ml.Models {
+		v.Available = append(v.Available, ModelChoice{Name: m.Name, Size: humanSize(m.Size)})
+	}
+	return v
 }
 
 func (s *Server) handleAccessPage(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +177,7 @@ func (s *Server) submitForm(w http.ResponseWriter, r *http.Request, kind queue.K
 		s.renderPartialError(w, "Requirement is required.")
 		return
 	}
+	req.Model = s.getActiveModel() // global active model (empty => qa-ai default)
 
 	job, err := s.q.Submit(kind, req)
 	if err != nil {

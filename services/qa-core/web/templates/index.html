@@ -11,8 +11,19 @@
 <div class="container">
   <div class="header">
     <h1>QA Test Case Generator</h1>
-    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
       <span class="hint">offline · <span id="backend-label" data-state="{{.Backend.State}}">{{.Backend.Label}}</span> · one-at-a-time queue</span>
+      {{if .Models.OK}}
+      <form hx-post="/model" hx-trigger="change" hx-swap="none" style="margin:0;">
+        <label class="hint" style="margin:0;">Model:
+          <select name="model" style="font-size:12px;padding:2px 4px;">
+            {{range .Models.Available}}<option value="{{.Name}}"{{if eq .Name $.Models.Active}} selected{{end}}>{{.Name}}{{if .Size}} · {{.Size}}{{end}}</option>{{end}}
+          </select>
+        </label>
+      </form>
+      {{else}}
+      <span class="hint">model: {{if .Models.Active}}{{.Models.Active}}{{else}}backend offline{{end}}</span>
+      {{end}}
       <a href="/logout" class="hint" style="text-decoration:underline;">Sign out</a>
     </div>
   </div>

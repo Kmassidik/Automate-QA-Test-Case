@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -100,6 +101,40 @@ func backendView(s aiclient.BackendStatus) BackendView {
 		return BackendView{Label: "LLM offline", State: "down"}
 	default:
 		return BackendView{Label: "starting…", State: "down"}
+	}
+}
+
+// ----- model picker -----
+
+// ModelsView drives the header model selector: the installed models, the active
+// choice (user's global selection or qa-ai's default), and whether the list was
+// reachable (OK=false => backend down, selector disabled).
+type ModelsView struct {
+	Available []ModelChoice
+	Active    string
+	OK        bool
+}
+
+type ModelChoice struct {
+	Name string
+	Size string // human-readable, e.g. "4.7 GB"
+}
+
+// humanSize renders a byte count as a compact GB/MB string for the picker.
+func humanSize(b int64) string {
+	const (
+		mb = 1 << 20
+		gb = 1 << 30
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1f GB", float64(b)/gb)
+	case b >= mb:
+		return fmt.Sprintf("%.0f MB", float64(b)/mb)
+	case b <= 0:
+		return ""
+	default:
+		return fmt.Sprintf("%d B", b)
 	}
 }
 

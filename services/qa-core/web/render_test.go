@@ -60,6 +60,7 @@ func TestRenderAllTemplates(t *testing.T) {
 		"Backend":  backendView(aiclient.BackendStatus{Reachable: true, State: "ready", Model: "qwen2.5:7b"}),
 		"Examples": examples,
 		"Options":  formOptions,
+		"Models":   ModelsView{OK: true, Active: "qwen2.5:7b", Available: []ModelChoice{{Name: "qwen2.5:7b", Size: "4.7 GB"}, {Name: "llama3.1:8b", Size: "4.9 GB"}}},
 	})
 
 	exec(t, p, "waiting.html", map[string]any{
