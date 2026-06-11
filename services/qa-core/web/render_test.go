@@ -5,9 +5,30 @@ import (
 	"strings"
 	"testing"
 
+	"qa-core/internal/aiclient"
 	"qa-core/internal/contract"
 	"qa-core/internal/queue"
 )
+
+func TestBackendView(t *testing.T) {
+	cases := []struct {
+		in        aiclient.BackendStatus
+		wantLabel string
+		wantState string
+	}{
+		{aiclient.BackendStatus{Reachable: false}, "LLM offline", "down"},
+		{aiclient.BackendStatus{Reachable: true, State: "ready", Model: "qwen2.5:7b"}, "qwen2.5:7b", "ready"},
+		{aiclient.BackendStatus{Reachable: true, State: "ready", Model: "stub"}, "stub backend", "stub"},
+		{aiclient.BackendStatus{Reachable: true, State: "pulling", Progress: "62%"}, "downloading model 62%", "pulling"},
+		{aiclient.BackendStatus{Reachable: true, State: "ollama_down"}, "LLM offline", "down"},
+	}
+	for _, c := range cases {
+		got := backendView(c.in)
+		if got.Label != c.wantLabel || got.State != c.wantState {
+			t.Errorf("backendView(%+v) = %+v, want {%q %q}", c.in, got, c.wantLabel, c.wantState)
+		}
+	}
+}
 
 func newTmpl(t *testing.T) *parsedTemplates {
 	t.Helper()
@@ -35,6 +56,7 @@ func TestRenderAllTemplates(t *testing.T) {
 
 	exec(t, p, "index.html", map[string]any{
 		"Status":   statusView(queue.Snapshot{Busy: true, QueueLen: 2}),
+		"Backend":  backendView(aiclient.BackendStatus{Reachable: true, State: "ready", Model: "qwen2.5:7b"}),
 		"Examples": examples,
 		"Options":  formOptions,
 	})

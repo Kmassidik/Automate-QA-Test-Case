@@ -82,3 +82,34 @@ func (c *Client) Health(ctx context.Context) error {
 	}
 	return nil
 }
+
+// BackendStatus is qa-ai's /healthz body — the real generation backend's state,
+// surfaced in the UI header so it reflects reality (model name / pulling / down)
+// instead of a hard-coded string.
+type BackendStatus struct {
+	Status    string `json:"status"`   // ok | pulling | degraded
+	State     string `json:"state"`    // ready | pulling | ollama_down | starting
+	Detail    string `json:"detail"`   // human guidance/progress
+	Model     string `json:"model"`    // e.g. "qwen2.5:7b" or "stub"
+	Progress  string `json:"progress"` // e.g. "62%" while pulling
+	Platform  string `json:"platform"` // e.g. "Linux (native)"
+	Reachable bool   `json:"-"`        // set by the caller: did the request succeed
+}
+
+// Status fetches qa-ai's /healthz body. A non-nil error or unreachable qa-ai
+// yields Reachable=false.
+func (c *Client) Status(ctx context.Context) BackendStatus {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/healthz", nil)
+	if err != nil {
+		return BackendStatus{}
+	}
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return BackendStatus{} // Reachable stays false
+	}
+	defer resp.Body.Close()
+	var s BackendStatus
+	_ = json.NewDecoder(resp.Body).Decode(&s) // 503 still carries a useful body
+	s.Reachable = true
+	return s
+}

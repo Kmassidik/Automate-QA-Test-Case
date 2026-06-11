@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"qa-core/internal/aiclient"
+	"qa-core/internal/backend"
 	"qa-core/internal/eta"
 	"qa-core/internal/queue"
 	"qa-core/internal/sse"
@@ -47,8 +48,13 @@ func main() {
 	})
 	q.Start(ctx)
 
+	// Backend monitor: poll qa-ai/healthz and push changes (model name, pull %,
+	// offline) to browsers via the same SSE broadcaster.
+	be := backend.NewMonitor(ai, bc.Publish)
+	be.Start(ctx, 3*time.Second)
+
 	access := web.NewAccess(cfg.accessCode)
-	srv, err := web.NewServer(access, q, bc, ai, log)
+	srv, err := web.NewServer(access, q, bc, ai, be, log)
 	if err != nil {
 		log.Error("server init", "err", err)
 		os.Exit(1)

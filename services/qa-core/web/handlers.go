@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"qa-core/internal/aiclient"
+	"qa-core/internal/backend"
 	"qa-core/internal/contract"
 	"qa-core/internal/export"
 	"qa-core/internal/queue"
@@ -22,10 +23,11 @@ type Server struct {
 	q      *queue.Manager
 	bc     *sse.Broadcaster
 	ai     *aiclient.Client
+	be     *backend.Monitor
 	log    *slog.Logger
 }
 
-func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclient.Client, log *slog.Logger) (*Server, error) {
+func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclient.Client, be *backend.Monitor, log *slog.Logger) (*Server, error) {
 	t, err := parseTemplates()
 	if err != nil {
 		return nil, err
@@ -36,6 +38,7 @@ func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclie
 		q:      q,
 		bc:     bc,
 		ai:     ai,
+		be:     be,
 		log:    log,
 	}, nil
 }
@@ -69,6 +72,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	snap := s.q.Snapshot()
 	s.tmpl.render(w, "index.html", map[string]any{
 		"Status":   statusView(snap),
+		"Backend":  backendView(s.be.Current()),
 		"Examples": examples,
 		"Options":  formOptions,
 	})
@@ -180,7 +184,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) writeEvent(w http.ResponseWriter, flusher http.Flusher, jobID string) {
-	payload := map[string]any{"global": statusView(s.q.Snapshot())}
+	payload := map[string]any{
+		"global":  statusView(s.q.Snapshot()),
+		"backend": backendView(s.be.Current()),
+	}
 	if jobID != "" {
 		if view, ok := s.q.JobView(jobID); ok {
 			payload["you"] = jobView(view)

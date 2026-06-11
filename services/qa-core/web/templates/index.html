@@ -11,7 +11,7 @@
 <div class="container">
   <div class="header">
     <h1>QA Test Case Generator</h1>
-    <span class="hint">offline · local LLM · one-at-a-time queue</span>
+    <span class="hint">offline · <span id="backend-label" data-state="{{.Backend.State}}">{{.Backend.Label}}</span> · one-at-a-time queue</span>
   </div>
   <p class="subtitle">Turn a requirement into structured QA artifacts — acceptance criteria, test cases, coverage, edge cases, scores.</p>
 
@@ -118,12 +118,19 @@
   (function () {
     const es = new EventSource("/events");
     es.addEventListener("tick", function (ev) {
-      const g = JSON.parse(ev.data).global;
+      const d = JSON.parse(ev.data);
+      const g = d.global;
       const bar = document.getElementById("status");
       const dot = document.getElementById("status-dot");
       document.getElementById("status-label").textContent = g.label;
       bar.dataset.busy = g.busy;
       dot.className = "dot" + (g.busy ? " busy" : "");
+
+      // Live backend label: real model name / "downloading 62%" / "LLM offline".
+      if (d.backend) {
+        const bl = document.getElementById("backend-label");
+        if (bl) { bl.textContent = d.backend.label; bl.dataset.state = d.backend.state; }
+      }
     });
   })();
 </script>

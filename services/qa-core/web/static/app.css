@@ -127,3 +127,10 @@ ol, ul { margin: 6px 0; padding-left: 20px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .queue-big { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; }
 code { background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+/* Live backend label in the header (model name / pulling / offline). */
+#backend-label { font-weight: 600; }
+#backend-label[data-state="ready"]   { color: var(--green); }
+#backend-label[data-state="pulling"] { color: var(--amber); }
+#backend-label[data-state="stub"]    { color: var(--amber); }
+#backend-label[data-state="down"]    { color: var(--red); }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"qa-core/internal/aiclient"
 	"qa-core/internal/queue"
 )
 
@@ -69,6 +70,36 @@ func jobView(v queue.JobView) JobStatusView {
 		ETASeconds: int(v.ETA.Seconds()),
 		ETAKnown:   v.ETAKnown,
 		Error:      v.Err,
+	}
+}
+
+// BackendView is the real generation-backend state for the header (template +
+// SSE `backend` object). Label is what the user sees; State drives styling.
+type BackendView struct {
+	Label string `json:"label"`
+	State string `json:"state"` // ready | pulling | down | stub
+}
+
+func backendView(s aiclient.BackendStatus) BackendView {
+	if !s.Reachable {
+		return BackendView{Label: "LLM offline", State: "down"}
+	}
+	switch s.State {
+	case "ready":
+		if strings.EqualFold(s.Model, "stub") {
+			return BackendView{Label: "stub backend", State: "stub"}
+		}
+		return BackendView{Label: s.Model, State: "ready"} // e.g. "qwen2.5:7b"
+	case "pulling":
+		label := "downloading model"
+		if s.Progress != "" {
+			label += " " + s.Progress
+		}
+		return BackendView{Label: label, State: "pulling"}
+	case "ollama_down":
+		return BackendView{Label: "LLM offline", State: "down"}
+	default:
+		return BackendView{Label: "starting…", State: "down"}
 	}
 }
 
