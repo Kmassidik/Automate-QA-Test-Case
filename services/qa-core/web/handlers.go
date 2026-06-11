@@ -57,6 +57,7 @@ func (s *Server) Routes() http.Handler {
 	// Gated.
 	gated := http.NewServeMux()
 	gated.HandleFunc("GET /{$}", s.handleIndex)
+	gated.HandleFunc("GET /logout", s.handleLogout)
 	gated.HandleFunc("POST /generate", s.handleGenerate)
 	gated.HandleFunc("GET /events", s.handleEvents)
 	gated.HandleFunc("GET /result/{id}", s.handleResult)
@@ -76,6 +77,11 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"Examples": examples,
 		"Options":  formOptions,
 	})
+}
+
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	s.access.Revoke(w)
+	http.Redirect(w, r, "/access", http.StatusSeeOther)
 }
 
 func (s *Server) handleAccessPage(w http.ResponseWriter, r *http.Request) {

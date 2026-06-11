@@ -50,6 +50,19 @@ func (a *Access) Grant(w http.ResponseWriter, submitted string) bool {
 	return true
 }
 
+// Revoke clears the access cookie (sign out): an expired, empty cookie that the
+// browser drops immediately.
+func (a *Access) Revoke(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     accessCookie,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
 // Middleware protects a handler, redirecting unauthenticated browsers to the
 // access page (and returning 401 for non-GET, e.g. htmx posts).
 func (a *Access) Middleware(next http.Handler) http.Handler {

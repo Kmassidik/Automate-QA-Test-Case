@@ -11,7 +11,10 @@
 <div class="container">
   <div class="header">
     <h1>QA Test Case Generator</h1>
-    <span class="hint">offline · <span id="backend-label" data-state="{{.Backend.State}}">{{.Backend.Label}}</span> · one-at-a-time queue</span>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+      <span class="hint">offline · <span id="backend-label" data-state="{{.Backend.State}}">{{.Backend.Label}}</span> · one-at-a-time queue</span>
+      <a href="/logout" class="hint" style="text-decoration:underline;">Sign out</a>
+    </div>
   </div>
   <p class="subtitle">Turn a requirement into structured QA artifacts — acceptance criteria, test cases, coverage, edge cases, scores.</p>
 
