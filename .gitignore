@@ -1,0 +1,23 @@
+# Secrets (12-factor; access code lives here, never in repo)
+.env
+**/.env
+!**/.env.example
+
+# Go build artifacts
+bin/
+*.exe
+*.test
+*.out
+
+# Air hot-reload
+tmp/
+**/tmp/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Nix
+result
+result-*

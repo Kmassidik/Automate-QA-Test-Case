@@ -1,0 +1,39 @@
+# Deployment (Mac Mini, Colima runtime).
+# Ollama stays NATIVE on the host (Metal GPU); containers reach it via
+# host.docker.internal:11434. Only the two Go services are containerized.
+services:
+  qa-ai:
+    build:
+      context: ./services/qa-ai
+    environment:
+      # qa-ai is stateless: it builds prompts, calls Ollama, validates JSON.
+      QA_AI_ADDR: ":8081"
+      OLLAMA_URL: "http://host.docker.internal:11434"
+      OLLAMA_MODEL: "qwen2.5:7b"
+      OLLAMA_NUM_CTX: "8192"
+      MAX_JSON_RETRIES: "3"
+      GEN_TIMEOUT: "180s"
+    extra_hosts:
+      # Make host.docker.internal resolvable on Linux/Colima as well as Docker Desktop.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    expose:
+      - "8081"
+
+  qa-core:
+    build:
+      context: ./services/qa-core
+    environment:
+      QA_CORE_ADDR: ":8080"
+      QA_AI_URL: "http://qa-ai:8081"
+      # ACCESS_CODE has no default on purpose — supply it at deploy time, e.g.
+      #   ACCESS_CODE=... docker compose up -d
+      ACCESS_CODE: "${ACCESS_CODE:?set ACCESS_CODE in the deploy environment}"
+      QUEUE_BUFFER: "256"
+      ETA_WINDOW: "20"
+      QA_AI_TIMEOUT: "200s"
+    depends_on:
+      - qa-ai
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
