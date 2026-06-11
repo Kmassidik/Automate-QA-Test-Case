@@ -1,0 +1,53 @@
+{{define "waiting.html"}}
+<div class="card" id="waiting" data-job="{{.Job.ID}}">
+  <h2>In the queue</h2>
+  <div style="display:flex;align-items:center;gap:14px;margin:8px 0 4px;">
+    <span class="spinner"></span>
+    <div>
+      <div id="wait-line" style="font-weight:600;">
+        {{if eq .Job.State "running"}}Generating your artifacts now…{{else}}You're #{{.Job.Position}} in line.{{end}}
+      </div>
+      <div id="wait-eta" class="muted" style="font-size:13px;">
+        {{if .Job.ETAKnown}}Estimated ~{{.Job.ETASeconds}}s{{else}}Estimating…{{end}}
+      </div>
+    </div>
+  </div>
+  <p class="hint" style="margin-bottom:0;">Live updates, no refresh needed. Each job runs one-at-a-time on local hardware.</p>
+</div>
+
+<script>
+(function () {
+  var el = document.getElementById("waiting");
+  if (!el) return;
+  var job = el.dataset.job;
+  var es = new EventSource("/events?job=" + encodeURIComponent(job));
+
+  function fmt(s) {
+    if (s < 60) return "~" + s + "s";
+    var m = Math.floor(s / 60), r = s % 60;
+    return "~" + m + "m" + (r ? " " + r + "s" : "");
+  }
+
+  es.addEventListener("tick", function (ev) {
+    var d = JSON.parse(ev.data).you;
+    if (!d) return;
+    var line = document.getElementById("wait-line");
+    var eta = document.getElementById("wait-eta");
+
+    if (d.state === "done" || d.state === "failed") {
+      es.close();
+      // Pull the rendered result (or error) into the panel.
+      htmx.ajax("GET", "/result/" + job, { target: "#panel", swap: "innerHTML" });
+      return;
+    }
+    if (d.state === "running") {
+      if (line) line.textContent = "Generating your artifacts now…";
+      if (eta) eta.textContent = d.eta_known ? "Almost there — " + fmt(d.eta_seconds) : "Working…";
+    } else {
+      if (line) line.textContent = "You're #" + d.position + " in line.";
+      if (eta) eta.textContent = d.eta_known ? "Estimated " + fmt(d.eta_seconds) : "Estimating…";
+    }
+  });
+})();
+</script>
+{{end}}

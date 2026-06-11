@@ -1,0 +1,131 @@
+{{define "index.html"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QA Test Case Generator</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>QA Test Case Generator</h1>
+    <span class="hint">offline · local LLM · one-at-a-time queue</span>
+  </div>
+  <p class="subtitle">Turn a requirement into structured QA artifacts — acceptance criteria, test cases, coverage, edge cases, scores.</p>
+
+  <!-- Global live status (SSE) -->
+  <div id="status" class="status-bar" data-busy="{{.Status.Busy}}">
+    <span id="status-dot" class="dot {{if .Status.Busy}}busy{{end}}"></span>
+    <span id="status-label">{{.Status.Label}}</span>
+  </div>
+
+  <div id="panel">
+    <div class="card">
+      <h2>New generation</h2>
+      <form id="genform" hx-post="/generate" hx-target="#panel" hx-swap="innerHTML">
+        <div class="field">
+          <label for="requirement">Requirement / user story <span class="hint">(max 3,000 chars)</span></label>
+          <textarea id="requirement" name="requirement" maxlength="3000" required
+            placeholder="As a registered user, I can reset my password…"></textarea>
+          <div style="margin-top:8px;display:flex;align-items:center;gap:8px;">
+            <label for="example" style="margin:0;">Examples:</label>
+            <select id="example" style="max-width:260px;" onchange="loadExample(this.value)">
+              <option value="">— pick an example —</option>
+              {{range $i, $e := .Examples}}<option value="{{$i}}">{{$e.Name}}</option>{{end}}
+            </select>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label for="application_type">Application type</label>
+            <select id="application_type" name="application_type">
+              {{range .Options.ApplicationTypes}}<option value="{{.}}">{{.}}</option>{{end}}
+            </select>
+          </div>
+          <div class="field">
+            <label for="detail_level">Detail level</label>
+            <select id="detail_level" name="detail_level">
+              {{range .Options.DetailLevels}}<option value="{{.}}"{{if eq . "Standard"}} selected{{end}}>{{.}}</option>{{end}}
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Test types</label>
+          <div class="checks">
+            {{range .Options.TestTypes}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}"{{if eq . "Functional"}} checked{{end}}>{{.}}</label>{{end}}
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Test design techniques</label>
+          <div class="checks">
+            {{range .Options.Techniques}}<label class="chk"><input type="checkbox" name="test_design_techniques" value="{{.}}"{{if eq . "Boundary Value Analysis"}} checked{{end}}>{{.}}</label>{{end}}
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label for="output_format">Output format</label>
+            <select id="output_format" name="output_format">
+              {{range .Options.OutputFormats}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+            </select>
+          </div>
+          <div class="field">
+            <label for="priority_scheme">Priority / severity scheme</label>
+            <select id="priority_scheme" name="priority_scheme">
+              {{range .Options.PrioritySchemes}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="platform_matrix">Platform / device / browser matrix <span class="hint">(optional)</span></label>
+          <input type="text" id="platform_matrix" name="platform_matrix" placeholder="e.g. iOS 17 Safari, Android 14 Chrome, Windows Edge">
+        </div>
+
+        <div class="field">
+          <label>Options</label>
+          <div class="toggles">
+            <label class="chk"><input type="checkbox" name="include_preconditions" checked> Include preconditions</label>
+            <label class="chk"><input type="checkbox" name="include_test_data" checked> Include test data</label>
+            <label class="chk"><input type="checkbox" name="generate_edge_cases" checked> Generate edge cases</label>
+          </div>
+        </div>
+
+        <button type="submit">Generate QA artifacts</button>
+        <span class="hint" style="margin-left:10px;">Each generation takes ~30–90s · you'll see your place in line.</span>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Examples picker (PRD §5.3) — fills the form locally, no round-trip.
+  const EXAMPLES = {{.Examples}};
+  function loadExample(i) {
+    if (i === "") return;
+    const e = EXAMPLES[i];
+    document.getElementById("requirement").value = e.requirement;
+    const at = document.getElementById("application_type");
+    if (e.application_type) at.value = e.application_type;
+  }
+
+  // Global queue status via SSE (PRD §5.4).
+  (function () {
+    const es = new EventSource("/events");
+    es.addEventListener("tick", function (ev) {
+      const g = JSON.parse(ev.data).global;
+      const bar = document.getElementById("status");
+      const dot = document.getElementById("status-dot");
+      document.getElementById("status-label").textContent = g.label;
+      bar.dataset.busy = g.busy;
+      dot.className = "dot" + (g.busy ? " busy" : "");
+    });
+  })();
+</script>
+</body>
+</html>{{end}}

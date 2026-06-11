@@ -1,0 +1,84 @@
+// Package aiclient calls the qa-ai service. The queue's single worker is the
+// only caller, so qa-ai never sees concurrent requests.
+package aiclient
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"qa-core/internal/contract"
+)
+
+type Client struct {
+	baseURL string
+	http    *http.Client
+}
+
+func New(baseURL string, timeout time.Duration) *Client {
+	return &Client{
+		baseURL: baseURL,
+		http:    &http.Client{Timeout: timeout},
+	}
+}
+
+// Generate posts the form to qa-ai and returns the validated result. It honors
+// ctx (the per-job timeout) in addition to the client timeout.
+func (c *Client) Generate(ctx context.Context, req contract.GenerateRequest) (contract.Result, error) {
+	buf, err := json.Marshal(req)
+	if err != nil {
+		return contract.Result{}, fmt.Errorf("marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/generate", bytes.NewReader(buf))
+	if err != nil {
+		return contract.Result{}, fmt.Errorf("build request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return contract.Result{}, fmt.Errorf("qa-ai unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		// Surface qa-ai's error message (e.g. retry-exhaustion) verbatim.
+		var e struct {
+			Error string `json:"error"`
+		}
+		_ = json.Unmarshal(body, &e)
+		if e.Error == "" {
+			e.Error = fmt.Sprintf("qa-ai status %d", resp.StatusCode)
+		}
+		return contract.Result{}, fmt.Errorf("generation failed: %s", e.Error)
+	}
+
+	var res contract.Result
+	if err := json.Unmarshal(body, &res); err != nil {
+		return contract.Result{}, fmt.Errorf("decode qa-ai result: %w", err)
+	}
+	return res, nil
+}
+
+// Health probes qa-ai's /healthz (which in turn probes Ollama).
+func (c *Client) Health(ctx context.Context) error {
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/healthz", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.http.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("qa-ai unhealthy: status %d", resp.StatusCode)
+	}
+	return nil
+}

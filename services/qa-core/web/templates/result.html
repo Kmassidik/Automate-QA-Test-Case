@@ -1,0 +1,160 @@
+{{define "result.html"}}
+{{$r := .Result}}
+<div id="results">
+  <div class="card">
+    <div class="header" style="margin-bottom:14px;">
+      <h2 style="margin:0;">QA artifacts</h2>
+      <div class="btn-row">
+        <a class="btn btn-outline btn-sm" href="/export/qa-csv/{{.ID}}">QA CSV</a>
+        <a class="btn btn-outline btn-sm" href="/export/jira-csv/{{.ID}}">Jira CSV</a>
+        <a class="btn btn-outline btn-sm" href="/export/markdown/{{.ID}}">Markdown</a>
+        <button class="btn-sm" onclick="location.reload()">New</button>
+      </div>
+    </div>
+
+    <!-- Scores -->
+    <div class="grid">
+      {{with $r.RequirementHealth}}
+      <div>
+        <h3 style="margin-top:0;">Requirement Health</h3>
+        <div class="score">
+          <span class="num">{{.Score}}</span><span class="muted">/ 100</span>
+          <div class="bar"><span style="width:{{.Score}}%"></span></div>
+        </div>
+        <div class="muted" style="margin-bottom:6px;">{{.Rating}}</div>
+        {{if .Deductions}}<ul style="margin-top:4px;">{{range .Deductions}}<li>{{.Reason}} <span class="muted">({{.Points}})</span></li>{{end}}</ul>{{end}}
+      </div>
+      {{end}}
+      {{with $r.TraceabilityScore}}
+      <div>
+        <h3 style="margin-top:0;">Traceability</h3>
+        <div class="score">
+          <span class="num">{{.Score}}</span><span class="muted">/ 100</span>
+          <div class="bar"><span style="width:{{.Score}}%"></span></div>
+        </div>
+        <div class="muted" style="margin-bottom:6px;">{{.Rating}}</div>
+        {{if .Deductions}}<ul style="margin-top:4px;">{{range .Deductions}}<li>{{.Reason}} <span class="muted">({{.Points}})</span></li>{{end}}</ul>{{end}}
+      </div>
+      {{end}}
+    </div>
+    {{if $r.MissingAreas}}<p style="margin-bottom:0;"><strong>Missing areas:</strong> {{range $i, $a := $r.MissingAreas}}{{if $i}}, {{end}}{{$a}}{{end}}</p>{{end}}
+  </div>
+
+  <!-- Requirement breakdown -->
+  {{if $r.RequirementAnalysis}}
+  <div class="card">
+    <h2>Requirement breakdown</h2>
+    {{range $r.RequirementAnalysis}}
+    <h3>{{.Feature}} <span class="badge {{.RiskLevel}}">{{.RiskLevel}}</span></h3>
+    <div class="pill-list">{{range .SubRequirements}}<span class="badge">{{.}}</span>{{end}}</div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <!-- Acceptance criteria -->
+  {{if $r.AcceptanceCriteria}}
+  <div class="card">
+    <h2>Acceptance criteria</h2>
+    <table>
+      <thead><tr><th>ID</th><th>Description</th><th>Module</th><th>Severity</th><th>Risk</th></tr></thead>
+      <tbody>
+      {{range $r.AcceptanceCriteria}}
+        <tr><td class="tc-id">{{.ID}}</td><td>{{.Description}}</td><td>{{.Module}}</td>
+        <td><span class="badge {{.Severity}}">{{.Severity}}</span></td><td>{{.RiskLevel}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+
+  <!-- Test cases -->
+  {{if $r.TestCases}}
+  <div class="card">
+    <h2>Test cases <span class="muted">({{len $r.TestCases}})</span></h2>
+    {{range $r.TestCases}}
+    <div class="tc">
+      <div class="tc-head">
+        <strong>{{.Title}}</strong>
+        <span class="badge {{.Risk}}">{{.Risk}}</span>
+      </div>
+      <div class="meta-line"><span class="tc-id">{{.ID}}</span> · {{.Type}} · {{.Technique}} · {{.Format}}{{if .Covers}} · covers {{range $i,$c := .Covers}}{{if $i}}, {{end}}{{$c}}{{end}}{{end}}</div>
+      {{if .Preconditions}}<div><strong>Preconditions</strong><ul>{{range .Preconditions}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+      <div><strong>Steps</strong><ol>{{range .Steps}}<li>{{.}}</li>{{end}}</ol></div>
+      <div><strong>Expected:</strong> {{.ExpectedResult}}</div>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <!-- Coverage -->
+  <div class="card">
+    <h2>Coverage</h2>
+    {{with $r.CoverageSummary}}
+    <div class="pill-list" style="margin-bottom:12px;">
+      <span class="badge">positive {{.Positive}}</span>
+      <span class="badge">negative {{.Negative}}</span>
+      <span class="badge">boundary {{.Boundary}}</span>
+      <span class="badge">security {{.Security}}</span>
+    </div>
+    {{end}}
+    {{if $r.CoverageMatrix}}
+    <table>
+      <thead><tr><th>Requirement point</th><th>Covered by</th><th>Type</th></tr></thead>
+      <tbody>
+      {{range $r.CoverageMatrix}}
+        <tr><td>{{.RequirementPoint}}</td><td>{{range $i,$t := .CoveredBy}}{{if $i}}, {{end}}{{$t}}{{end}}</td><td>{{.CoverageType}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{end}}
+  </div>
+
+  <!-- Edge cases -->
+  {{if $r.EdgeCases}}
+  <div class="card">
+    <h2>Edge cases</h2>
+    <ul>{{range $r.EdgeCases}}<li><strong>{{.Scenario}}</strong> → {{.ExpectedResult}} <span class="tc-id">({{.ID}})</span></li>{{end}}</ul>
+  </div>
+  {{end}}
+
+  <!-- Test data -->
+  {{with $r.TestData}}
+  {{if or .ValidEmails .InvalidEmails .BoundaryValues}}
+  <div class="card">
+    <h2>Structured test data</h2>
+    {{if .ValidEmails}}<p><strong>Valid:</strong> {{range $i,$v := .ValidEmails}}{{if $i}}, {{end}}<code>{{$v}}</code>{{end}}</p>{{end}}
+    {{if .InvalidEmails}}<p><strong>Invalid:</strong> {{range $i,$v := .InvalidEmails}}{{if $i}}, {{end}}<code>{{$v}}</code>{{end}}</p>{{end}}
+    {{if .BoundaryValues}}<p><strong>Boundary:</strong> {{range $i,$v := .BoundaryValues}}{{if $i}}, {{end}}<code>{{$v}}</code>{{end}}</p>{{end}}
+  </div>
+  {{end}}
+  {{end}}
+
+  <!-- API tests -->
+  {{if $r.APITests}}
+  <div class="card">
+    <h2>API tests</h2>
+    {{range $r.APITests}}
+    <div class="tc">
+      <div><code>{{.RequestExample}}</code> → expect <span class="badge">{{.ExpectedStatus}}</span></div>
+      <div class="muted" style="margin-top:6px;">{{.ResponseValidation}}</div>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
+  <!-- Ambiguities -->
+  {{if $r.Ambiguities}}
+  <div class="card">
+    <h2>Ambiguities</h2>
+    <table>
+      <thead><tr><th>Severity</th><th>Location</th><th>Issue</th><th>Suggestion</th></tr></thead>
+      <tbody>
+      {{range $r.Ambiguities}}
+        <tr><td><span class="badge {{.Severity}}">{{.Severity}}</span></td><td>{{.Location}}</td><td>{{.Issue}}</td><td>{{.Suggestion}}</td></tr>
+      {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{end}}
+</div>
+{{end}}

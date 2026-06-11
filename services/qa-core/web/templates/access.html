@@ -1,0 +1,26 @@
+{{define "access.html"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Access · QA Test Case Generator</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="center-screen">
+    <div class="card access-card">
+      <h1 style="font-size:18px;margin:0 0 4px;">QA Test Case Generator</h1>
+      <p class="subtitle" style="margin-bottom:18px;">Enter the shared access code to continue.</p>
+      {{if .Error}}<div class="error-box" style="margin-bottom:14px;">{{.Error}}</div>{{end}}
+      <form method="post" action="/access">
+        <div class="field">
+          <label for="access_code">Access code</label>
+          <input type="password" id="access_code" name="access_code" autofocus autocomplete="off" required>
+        </div>
+        <button type="submit" style="width:100%;">Continue</button>
+      </form>
+      <p class="hint" style="margin-top:14px;">Runs fully offline · no data leaves this machine.</p>
+    </div>
+  </div>
+</body>
+</html>{{end}}
