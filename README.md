@@ -78,6 +78,16 @@ No Nix? Each service builds with the stdlib only:
 (cd services/qa-core && make build && ./bin/qa-core)
 ```
 
+No system Ollama (e.g. a Linux box without sudo)? Run it from a local binary:
+
+```bash
+scripts/run-ollama-local.sh    # downloads once, serves on :11434, no install
+```
+
+The UI header shows the live backend state — the model name (`qwen2.5:7b`) when
+ready, the download percentage while qa-ai auto-pulls, or "LLM offline" if the
+daemon isn't up — so you always know what's actually answering.
+
 ## The model is pulled automatically
 
 `qa-ai` runs an OS-aware warmup on boot: it waits for the Ollama daemon, then
