@@ -46,80 +46,95 @@ Ollama (NATIVE, Metal) ──► Qwen2.5 7B
     └── qa-ai/    cmd/ internal/      Makefile Dockerfile .env.example
 ```
 
-## Quick start (dev)
+## Running the app
 
-Requires [Nix](https://nixos.org) (flakes) and **native** Ollama.
+Whichever way you run it, one rule holds: the **Ollama daemon must be reachable**,
+and `qa-ai` **auto-pulls `qwen2.5:7b` on first boot** (no manual `ollama pull`
+needed). The UI header shows the live backend state — model name when ready,
+download % while pulling, or "LLM offline" if the daemon is down.
+
+> **Ollama placement by OS**
+> - **macOS:** Ollama must run **natively** (it needs the Metal GPU, which Docker's
+>   Linux VM can't reach). Install via the Ollama app or `brew install ollama`.
+> - **Linux:** Ollama can run natively, **in Docker**, or from the no-sudo helper
+>   script — the GPU is reachable either way.
+
+Ports: **qa-core (the UI) → `:8080`**, qa-ai → `:8081`, Ollama → `:11434`.
+
+---
+
+### Option A — Manually (no Docker)
+
+Three processes. Needs **Go 1.22+** (and Ollama installed).
 
 ```bash
-# 1. Ollama runs natively on the host (NOT in Docker — it needs Metal on macOS).
+# 1) Start Ollama
+#    macOS / Linux (installed):   ollama serve
+#    Linux without sudo:          scripts/run-ollama-local.sh   # downloads + serves on :11434
 ollama serve &
-ollama pull qwen2.5:7b
 
-# 2. Enter the dev shell (provides the Go toolchain + tooling).
-nix develop
+# 2) Build + run qa-ai  (terminal 2) — auto-pulls qwen2.5:7b on first boot
+cd services/qa-ai && make build
+./bin/qa-ai                          # :8081, talks to Ollama at localhost:11434
 
-# 3. Configure each service (copy and edit the example env files).
-cp services/qa-ai/.env.example   services/qa-ai/.env
-cp services/qa-core/.env.example services/qa-core/.env
-#   -> set ACCESS_CODE in services/qa-core/.env
+# 3) Build + run qa-core  (terminal 3) — ACCESS_CODE is REQUIRED (it won't start without it)
+cd services/qa-core && make build
+ACCESS_CODE=your-shared-code ./bin/qa-core    # :8080
 
-# 4. Run both services (separate shells), hot-reloaded via air.
-(cd services/qa-ai   && set -a; source .env; set +a; air)
-(cd services/qa-core && set -a; source .env; set +a; air)
-
-# 5. Open the UI.
-open http://localhost:8080
+# 4) Open the UI and enter your access code
+#    macOS: open http://localhost:8080   ·   Linux: xdg-open http://localhost:8080
 ```
 
-No Nix? Each service builds with the stdlib only:
+Prefer env files over inline vars? `cp .env.example .env` in each service, edit, then
+`set -a; source .env; set +a; ./bin/<svc>`. Same Ollama rule as above (native on Mac).
+
+---
+
+### Option B — Docker
+
+Ollama placement differs by OS, so there are two compose files.
+
+**macOS** — Ollama stays native (Metal); only the two Go services are containerized:
 
 ```bash
-(cd services/qa-ai   && make build && ./bin/qa-ai)
-(cd services/qa-core && make build && ./bin/qa-core)
-```
-
-No system Ollama (e.g. a Linux box without sudo)? Run it from a local binary:
-
-```bash
-scripts/run-ollama-local.sh    # downloads once, serves on :11434, no install
-```
-
-The UI header shows the live backend state — the model name (`qwen2.5:7b`) when
-ready, the download percentage while qa-ai auto-pulls, or "LLM offline" if the
-daemon isn't up — so you always know what's actually answering.
-
-## The model is pulled automatically
-
-`qa-ai` runs an OS-aware warmup on boot: it waits for the Ollama daemon, then
-**auto-pulls `qwen2.5:7b` if it's missing** (streaming progress to logs) and only
-then accepts generations. While it's not ready, `/healthz` and the UI show why —
-with guidance tailored to your OS:
-
-- **macOS:** "run Ollama natively (`ollama serve`) — it can't use Metal inside Docker."
-- **Linux:** "run `ollama serve`, or `docker run … ollama/ollama`; the model is pulled automatically."
-
-So the only manual step is having the **daemon** running. Disable auto-pull with
-`OLLAMA_AUTO_PULL=false`.
-
-## Deploy
-
-**macOS (Mac Mini, Colima)** — Ollama stays native (Metal); only the Go services
-are containerized:
-
-```bash
-ollama serve &                    # native, Metal-accelerated
+ollama serve &                                       # native, Metal-accelerated
 ACCESS_CODE=your-shared-code docker compose up -d --build
-# qa-ai auto-pulls qwen2.5:7b on first boot.
+# qa-ai reaches the host Ollama via host.docker.internal:11434.
 ```
 
-**Linux** — Ollama can run in Docker too (GPU is reachable from containers), so
-the whole stack is one compose file:
+**Linux** — run the **whole stack** (incl. Ollama) in one compose file:
 
 ```bash
 ACCESS_CODE=your-shared-code docker compose -f compose.linux.yml up -d --build
 # Ollama runs as a container; the model is cached in a named volume.
-# For an NVIDIA GPU, see the deploy block in compose.linux.yml.
+# NVIDIA GPU: uncomment the `deploy:` block in compose.linux.yml first.
 ```
+
+Either way, open **http://localhost:8080**. Logs: `docker compose logs -f qa-ai`
+(watch the model auto-pull). Stop: `docker compose down` (add `-f compose.linux.yml`
+on Linux).
+
+---
+
+### Option C — Nix dev shell (hot reload)
+
+```bash
+nix develop                                    # Go toolchain + air + tooling
+cp services/qa-ai/.env.example   services/qa-ai/.env
+cp services/qa-core/.env.example services/qa-core/.env   # set ACCESS_CODE here
+(cd services/qa-ai   && set -a; source .env; set +a; air) # hot reload
+(cd services/qa-core && set -a; source .env; set +a; air)
+```
+
+(Ollama still runs natively on the host — `ollama serve` — same as Option A.)
+
+## How the auto-pull / readiness works
+
+`qa-ai` runs an OS-aware warmup on boot: it waits for the Ollama daemon, then
+**auto-pulls the model if it's missing** (streaming progress to logs) and only then
+accepts generations. Until it's ready, `/healthz` and the UI show why, tailored to
+your OS (e.g. macOS "run Ollama natively — no Metal in Docker"; Linux "run
+`ollama serve`, or `docker run … ollama/ollama`"). Disable with `OLLAMA_AUTO_PULL=false`.
 
 ## Make targets (per service)
 
