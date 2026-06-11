@@ -1,78 +1,70 @@
 package export
 
 import (
-	"bytes"
-	"encoding/csv"
 	"strings"
 
 	"qa-core/internal/contract"
 )
 
-// qaCSVHeader is the FROZEN QA Repository CSV schema (PRD §5.3): test-case-centric,
-// import-ready for TestRail/Zephyr without schema changes.
+// qaCSVHeader is the FROZEN QA Repository CSV schema (PRD §5.3 / review.md §1.3):
+// the 13-column best-practice manual-QA template. The on-screen result table and
+// this CSV are derived from the SAME rows (QARepositoryRows) so they match 1:1.
 var qaCSVHeader = []string{
-	"TC ID", "Title", "Requirement ID", "Requirement Summary", "Acceptance Criteria ID",
-	"Test Type", "Test Design Technique", "Priority", "Severity", "Risk",
-	"Preconditions", "Test Data", "Steps", "Expected Result", "Coverage Type",
-	"Traceability Links", "Status", "Notes",
+	"TC ID", "AC ID", "Module/Feature", "Title/Scenario", "Precondition",
+	"Test Steps", "Test Data", "Expected Result", "Priority (P0-P3)",
+	"Severity (Critical-Low)", "Type", "Actual Result", "Notes",
 }
 
-// QARepositoryCSV renders one row per test case.
-func QARepositoryCSV(r contract.Result, opt Options) ([]byte, error) {
+// QARepositoryRows is the single source of truth for the QA table: it returns the
+// header and one row per test case, in the frozen 13-column order. Both the CSV
+// exporter and the result-page table render from this — guaranteeing the screen
+// matches the spreadsheet exactly.
+func QARepositoryRows(r contract.Result, opt Options) (header []string, rows [][]string) {
 	d := derive(r)
+	rows = make([][]string, 0, len(r.TestCases))
+	for i, tc := range r.TestCases {
+		rows = append(rows, []string{
+			fallback(tc.ID, "TC-"+itoa(i+1)),    // TC ID
+			strings.Join(tc.Covers, "; "),        // AC ID
+			moduleForTC(d, tc),                    // Module/Feature
+			tc.Title,                              // Title/Scenario
+			strings.Join(tc.Preconditions, "\n"),  // Precondition
+			joinSteps(tc),                         // Test Steps
+			testDataForTC(tc, r.TestData),         // Test Data
+			tc.ExpectedResult,                     // Expected Result
+			priorityForTC(tc, opt.PriorityScheme), // Priority (P0-P3)
+			d.severityForTC(tc),                   // Severity (Critical-Low)
+			tc.Type,                               // Type
+			tc.ActualResult,                       // Actual Result (empty at generation)
+			"",                                    // Notes
+		})
+	}
+	return qaCSVHeader, rows
+}
 
-	var buf bytes.Buffer
-	w := csv.NewWriter(&buf)
-	if err := w.Write(qaCSVHeader); err != nil {
+// QARepositoryCSV renders the QA table as an Excel-friendly CSV (BOM + CRLF).
+func QARepositoryCSV(r contract.Result, opt Options) ([]byte, error) {
+	header, rows := QARepositoryRows(r, opt)
+
+	buf, w := newExcelCSV()
+	if err := w.Write(header); err != nil {
 		return nil, err
 	}
-
-	for i, tc := range r.TestCases {
-		reqPoints := d.reqPointsByTC[tc.ID]
-		coverageTypes := d.coverageTypeByTC[tc.ID]
-
-		// Requirement ID is synthesized (the contract has no explicit per-TC
-		// requirement ID): RP-n for the first covered requirement point, else "".
-		reqID := ""
-		if len(reqPoints) > 0 {
-			reqID = synthReqID(r, reqPoints[0])
-		}
-
-		row := []string{
-			fallback(tc.ID, "TC-"+itoa(i+1)),
-			tc.Title,
-			reqID,
-			strings.Join(reqPoints, "; "),
-			strings.Join(tc.Covers, "; "),
-			tc.Type,
-			tc.Technique,
-			priorityForTC(tc, opt.PriorityScheme),
-			d.severityForTC(tc),
-			normalizeSeverity(tc.Risk),
-			strings.Join(tc.Preconditions, "\n"),
-			testDataForTC(tc, r.TestData),
-			joinSteps(tc),
-			tc.ExpectedResult,
-			strings.Join(coverageTypes, "; "),
-			traceabilityLinks(tc, reqPoints),
-			"Not Run", // default execution status for manual runs
-			"",
-		}
+	for _, row := range rows {
 		if err := w.Write(row); err != nil {
 			return nil, err
 		}
 	}
-
 	w.Flush()
 	return buf.Bytes(), w.Error()
 }
 
-// synthReqID gives a stable RP-n id based on the requirement point's position in
-// the coverage matrix.
-func synthReqID(r contract.Result, point string) string {
-	for i, row := range r.CoverageMatrix {
-		if row.RequirementPoint == point {
-			return "RP-" + itoa(i+1)
+// moduleForTC returns the module/feature for a test case: the first non-empty
+// Module among the acceptance criteria it covers.
+func moduleForTC(d derived, tc contract.TestCase) string {
+	for _, acID := range tc.Covers {
+		if ac, ok := d.acByID[acID]; ok && strings.TrimSpace(ac.Module) != "" {
+			return ac.Module
 		}
 	}
 	return ""
@@ -93,12 +85,6 @@ func joinSteps(tc contract.TestCase) string {
 		b.WriteString(s)
 	}
 	return b.String()
-}
-
-func traceabilityLinks(tc contract.TestCase, reqPoints []string) string {
-	parts := append([]string(nil), tc.Covers...)
-	parts = append(parts, reqPoints...)
-	return strings.Join(parts, "; ")
 }
 
 func fallback(v, def string) string {

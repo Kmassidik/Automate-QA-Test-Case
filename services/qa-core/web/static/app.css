@@ -112,6 +112,13 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
 th { color: var(--muted); font-weight: 600; }
 
+/* 13-col QA test-case table (mirrors the QA CSV). Scrolls horizontally on
+   narrow screens; multi-line cells (steps, preconditions) keep their breaks. */
+.table-scroll { overflow-x: auto; }
+.tc-table { font-size: 12px; min-width: 1100px; }
+.tc-table th { white-space: nowrap; }
+.tc-table .cell { white-space: pre-line; max-width: 280px; }
+
 .tc { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
 .tc .tc-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .tc .tc-id { color: var(--muted); font-family: ui-monospace, monospace; font-size: 12px; }

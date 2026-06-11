@@ -57,13 +57,14 @@ type AcceptanceCriterion struct {
 type TestCase struct {
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
-	Type           string   `json:"type"`
+	Type           string   `json:"type"` // Positive | Negative | Edge case | Trivial
 	Technique      string   `json:"technique"`
 	Preconditions  []string `json:"preconditions"`
 	Steps          []string `json:"steps"`
 	ExpectedResult string   `json:"expected_result"`
-	Covers         []string `json:"covers"` // AC traceability
-	Format         string   `json:"format"` // step-by-step | gherkin | checklist
+	ActualResult   string   `json:"actual_result"` // empty at generation; filled during manual execution
+	Covers         []string `json:"covers"`        // AC traceability
+	Format         string   `json:"format"`        // step-by-step | gherkin | checklist
 	Risk           string   `json:"risk"`
 }
 
@@ -88,14 +89,14 @@ type APITest struct {
 type CoverageRow struct {
 	RequirementPoint string   `json:"requirement_point"`
 	CoveredBy        []string `json:"covered_by"`
-	CoverageType     string   `json:"coverage_type"` // Positive · Negative · Boundary · Security
+	CoverageType     string   `json:"coverage_type"` // Positive · Negative · Edge case · Trivial
 }
 
 type CoverageSummary struct {
 	Positive int `json:"positive"`
 	Negative int `json:"negative"`
-	Boundary int `json:"boundary"`
-	Security int `json:"security"`
+	EdgeCase int `json:"edge_case"`
+	Trivial  int `json:"trivial"`
 }
 
 type Ambiguity struct {

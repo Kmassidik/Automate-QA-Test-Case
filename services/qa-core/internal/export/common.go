@@ -5,6 +5,8 @@
 package export
 
 import (
+	"bytes"
+	"encoding/csv"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,6 +15,22 @@ import (
 )
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+// utf8BOM lets Excel detect UTF-8 encoding; without it, non-ASCII characters
+// render as mojibake when the CSV is opened in Excel.
+var utf8BOM = []byte{0xEF, 0xBB, 0xBF}
+
+// newExcelCSV returns a buffer pre-seeded with a UTF-8 BOM and a csv.Writer
+// configured for CRLF line endings — the two things Excel needs to open a
+// generated CSV correctly (encoding detection + row breaks). Other importers
+// (TestRail/Zephyr) strip the BOM and accept CRLF, so this stays portable.
+func newExcelCSV() (*bytes.Buffer, *csv.Writer) {
+	buf := &bytes.Buffer{}
+	buf.Write(utf8BOM)
+	w := csv.NewWriter(buf)
+	w.UseCRLF = true
+	return buf, w
+}
 
 // Options carries fields that live on the request, not the Result, but are
 // needed to render exports faithfully (e.g. the chosen priority scheme).
@@ -100,7 +118,9 @@ func priorityForTC(tc contract.TestCase, scheme string) string {
 func testDataForTC(tc contract.TestCase, td contract.TestData) string {
 	t := strings.ToLower(tc.Type + " " + tc.Technique + " " + tc.Title)
 	switch {
-	case strings.Contains(t, "boundary"):
+	// "edge" matches the new Type vocabulary; "boundary" keeps the Technique signal
+	// (Boundary Value Analysis) so the boundary dataset still applies.
+	case strings.Contains(t, "edge"), strings.Contains(t, "boundary"):
 		return strings.Join(td.BoundaryValues, "; ")
 	case strings.Contains(t, "negative"), strings.Contains(t, "invalid"):
 		return strings.Join(td.InvalidEmails, "; ")

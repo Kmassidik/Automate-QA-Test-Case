@@ -139,9 +139,13 @@ func (s *Server) handleResult(w http.ResponseWriter, r *http.Request) {
 	}
 	switch job.State {
 	case queue.StateDone:
+		opt := export.Options{PriorityScheme: job.Req.PriorityScheme, Requirement: job.Req.Requirement}
+		header, rows := export.QARepositoryRows(*job.Result, opt)
 		s.tmpl.render(w, "result.html", map[string]any{
 			"ID":     job.ID,
 			"Result": job.Result,
+			"Header": header,
+			"Rows":   rows,
 		})
 	case queue.StateFailed:
 		s.renderPartialError(w, "Generation failed: "+job.Err)

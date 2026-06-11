@@ -7,6 +7,7 @@ import (
 
 	"qa-core/internal/aiclient"
 	"qa-core/internal/contract"
+	"qa-core/internal/export"
 	"qa-core/internal/queue"
 )
 
@@ -65,7 +66,10 @@ func TestRenderAllTemplates(t *testing.T) {
 		"Job": jobView(queue.JobView{ID: "abc", State: queue.StateQueued, Position: 3, ETAKnown: true}),
 	})
 
-	out := exec(t, p, "result.html", map[string]any{"ID": "job1", "Result": sampleResult()})
+	header, rows := export.QARepositoryRows(*sampleResult(), export.Options{PriorityScheme: "P0-P3"})
+	out := exec(t, p, "result.html", map[string]any{
+		"ID": "job1", "Result": sampleResult(), "Header": header, "Rows": rows,
+	})
 	for _, want := range []string{"AC-1", "TC-1", "Requirement Health", "/export/qa-csv/job1", "Expired token"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("result.html missing %q", want)
@@ -89,7 +93,7 @@ func sampleResult() *contract.Result {
 		EdgeCases:         []contract.EdgeCase{{ID: "EC-1", Scenario: "Expired token", ExpectedResult: "Rejected"}},
 		TestData:          contract.TestData{ValidEmails: []string{"a@b.com"}, InvalidEmails: []string{"x@"}, BoundaryValues: []string{"255 chars"}},
 		CoverageMatrix:    []contract.CoverageRow{{RequirementPoint: "Token expiry", CoveredBy: []string{"TC-1"}, CoverageType: "Negative"}},
-		CoverageSummary:   contract.CoverageSummary{Positive: 3, Negative: 2, Boundary: 1, Security: 1},
+		CoverageSummary:   contract.CoverageSummary{Positive: 3, Negative: 2, EdgeCase: 1, Trivial: 1},
 		Ambiguities:       []contract.Ambiguity{{Location: "policy", Issue: "undefined", Suggestion: "define", Severity: "Medium"}},
 		RequirementHealth: contract.Score{Score: 82, Rating: "Good", Deductions: []contract.Deduction{{Reason: "validation unspecified", Points: -15}}},
 		TraceabilityScore: contract.Score{Score: 88, Rating: "Minor Gaps", Deductions: []contract.Deduction{{Reason: "boundary gap", Points: -10}}},

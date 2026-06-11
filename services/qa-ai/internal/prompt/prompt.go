@@ -32,8 +32,9 @@ SCORING POLICY (apply exactly):
     Rating bands: 90-100 Excellent, 75-89 Good, 60-74 Needs Clarification, 40-59 High Risk, <40 Not Test Ready.
 - Traceability (coverage completeness, AFTER generation, stricter):
     Each requirement point not covered by >=1 test case: -15.
-    Coverage-type gaps: No negative testing -10, No boundary testing (when applicable) -10,
-    No error-path testing -15, No security testing (for auth/payment features) -15.
+    Coverage-type gaps (from coverage_summary counts): No negative coverage (negative==0) -15,
+    No edge-case coverage (edge_case==0) -10, Only-positive suite (negative==0 AND edge_case==0) additional -10,
+    Over-reliance on trivial cases (trivial > positive+negative+edge_case) -5. Positive coverage is the baseline (no penalty).
     Unresolved ambiguity impact: Critical -15, High -8, Medium -4, Low -1.
     Rating bands: 95-100 Fully Covered, 85-94 Minor Gaps, 70-84 Coverage Risk, 50-69 Significant Gaps, <50 Unsafe To Release.
 - The server re-clamps scores to 0-100, so report honest deductions; do not pre-clamp.`
@@ -49,14 +50,14 @@ func schema(apiBlock string) string {
     { "id": "AC-1", "description": "string", "module": "string", "severity": "Critical|High|Medium|Low", "risk_level": "Critical|High|Medium|Low" }
   ],
   "test_cases": [
-    { "id": "TC-1", "title": "string", "type": "string", "technique": "string",
+    { "id": "TC-1", "title": "string", "type": "Positive|Negative|Edge case|Trivial", "technique": "string",
       "preconditions": ["string"], "steps": ["string"], "expected_result": "string",
       "covers": ["AC-1"], "format": "step-by-step|gherkin|checklist", "risk": "Critical|High|Medium|Low" }
   ],
   "edge_cases": [ { "id": "EC-1", "scenario": "string", "expected_result": "string" } ],
   "test_data": { "valid_emails": ["string"], "invalid_emails": ["string"], "boundary_values": ["string"] },` + apiBlock + `
-  "coverage_matrix": [ { "requirement_point": "string", "covered_by": ["TC-1"], "coverage_type": "Positive|Negative|Boundary|Security" } ],
-  "coverage_summary": { "positive": 0, "negative": 0, "boundary": 0, "security": 0 },
+  "coverage_matrix": [ { "requirement_point": "string", "covered_by": ["TC-1"], "coverage_type": "Positive|Negative|Edge case|Trivial" } ],
+  "coverage_summary": { "positive": 0, "negative": 0, "edge_case": 0, "trivial": 0 },
   "ambiguities": [ { "location": "string", "issue": "string", "suggestion": "string", "severity": "Critical|High|Medium|Low" } ],
   "requirement_health": { "score": 0, "rating": "string", "deductions": [ { "reason": "string", "points": -10 } ] },
   "traceability_score": { "score": 0, "rating": "string", "deductions": [ { "reason": "string", "points": -10 } ] },

@@ -67,22 +67,20 @@
   </div>
   {{end}}
 
-  <!-- Test cases -->
-  {{if $r.TestCases}}
+  <!-- Test cases (13-col QA table — identical to the QA CSV export) -->
+  {{if .Rows}}
   <div class="card">
-    <h2>Test cases <span class="muted">({{len $r.TestCases}})</span></h2>
-    {{range $r.TestCases}}
-    <div class="tc">
-      <div class="tc-head">
-        <strong>{{.Title}}</strong>
-        <span class="badge {{.Risk}}">{{.Risk}}</span>
-      </div>
-      <div class="meta-line"><span class="tc-id">{{.ID}}</span> · {{.Type}} · {{.Technique}} · {{.Format}}{{if .Covers}} · covers {{range $i,$c := .Covers}}{{if $i}}, {{end}}{{$c}}{{end}}{{end}}</div>
-      {{if .Preconditions}}<div><strong>Preconditions</strong><ul>{{range .Preconditions}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
-      <div><strong>Steps</strong><ol>{{range .Steps}}<li>{{.}}</li>{{end}}</ol></div>
-      <div><strong>Expected:</strong> {{.ExpectedResult}}</div>
+    <h2>Test cases <span class="muted">({{len .Rows}})</span></h2>
+    <div class="table-scroll">
+      <table class="tc-table">
+        <thead><tr>{{range .Header}}<th>{{.}}</th>{{end}}</tr></thead>
+        <tbody>
+        {{range .Rows}}
+          <tr>{{range .}}<td class="cell">{{.}}</td>{{end}}</tr>
+        {{end}}
+        </tbody>
+      </table>
     </div>
-    {{end}}
   </div>
   {{end}}
 
@@ -93,8 +91,8 @@
     <div class="pill-list" style="margin-bottom:12px;">
       <span class="badge">positive {{.Positive}}</span>
       <span class="badge">negative {{.Negative}}</span>
-      <span class="badge">boundary {{.Boundary}}</span>
-      <span class="badge">security {{.Security}}</span>
+      <span class="badge">edge case {{.EdgeCase}}</span>
+      <span class="badge">trivial {{.Trivial}}</span>
     </div>
     {{end}}
     {{if $r.CoverageMatrix}}

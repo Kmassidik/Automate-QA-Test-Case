@@ -1,8 +1,6 @@
 package export
 
 import (
-	"bytes"
-	"encoding/csv"
 	"fmt"
 	"strings"
 
@@ -21,8 +19,7 @@ var jiraCSVHeader = []string{
 func JiraCSV(r contract.Result, opt Options) ([]byte, error) {
 	d := derive(r)
 
-	var buf bytes.Buffer
-	w := csv.NewWriter(&buf)
+	buf, w := newExcelCSV()
 	if err := w.Write(jiraCSVHeader); err != nil {
 		return nil, err
 	}

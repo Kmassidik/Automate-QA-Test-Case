@@ -14,6 +14,12 @@ func Clamp(r *contract.Result) {
 	r.TraceabilityScore = normalize(r.TraceabilityScore, traceRating)
 }
 
+// ClampHealth normalizes only the requirement-health score. The validation pass
+// (two-step flow) produces no traceability score, so it clamps just this one.
+func ClampHealth(r *contract.Result) {
+	r.RequirementHealth = normalize(r.RequirementHealth, healthRating)
+}
+
 func normalize(s contract.Score, rate func(int) string) contract.Score {
 	total := 100
 	for _, d := range s.Deductions {
