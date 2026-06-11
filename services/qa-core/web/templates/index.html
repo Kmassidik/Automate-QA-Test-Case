@@ -26,8 +26,8 @@
 
   <div id="panel">
     <div class="card">
-      <h2>New generation</h2>
-      <form id="genform" hx-post="/generate" hx-target="#panel" hx-swap="innerHTML">
+      <h2>New requirement</h2>
+      <form id="genform" hx-post="/validate" hx-target="#panel" hx-swap="innerHTML">
         <div class="field">
           <label for="requirement">Requirement / user story <span class="hint">(max 3,000 chars)</span></label>
           <textarea id="requirement" name="requirement" maxlength="3000" required
@@ -49,9 +49,9 @@
             </select>
           </div>
           <div class="field">
-            <label for="detail_level">Detail level</label>
-            <select id="detail_level" name="detail_level">
-              {{range .Options.DetailLevels}}<option value="{{.}}"{{if eq . "Standard"}} selected{{end}}>{{.}}</option>{{end}}
+            <label for="output_format">Output format</label>
+            <select id="output_format" name="output_format">
+              {{range .Options.OutputFormats}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
             </select>
           </div>
         </div>
@@ -59,29 +59,7 @@
         <div class="field">
           <label>Test types</label>
           <div class="checks">
-            {{range .Options.TestTypes}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}"{{if eq . "Functional"}} checked{{end}}>{{.}}</label>{{end}}
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Test design techniques</label>
-          <div class="checks">
-            {{range .Options.Techniques}}<label class="chk"><input type="checkbox" name="test_design_techniques" value="{{.}}"{{if eq . "Boundary Value Analysis"}} checked{{end}}>{{.}}</label>{{end}}
-          </div>
-        </div>
-
-        <div class="grid">
-          <div class="field">
-            <label for="output_format">Output format</label>
-            <select id="output_format" name="output_format">
-              {{range .Options.OutputFormats}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
-            </select>
-          </div>
-          <div class="field">
-            <label for="priority_scheme">Priority / severity scheme</label>
-            <select id="priority_scheme" name="priority_scheme">
-              {{range .Options.PrioritySchemes}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
-            </select>
+            {{range .Options.TestTypes}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}"{{if ne . "Trivial"}} checked{{end}}>{{.}}</label>{{end}}
           </div>
         </div>
 
@@ -90,17 +68,8 @@
           <input type="text" id="platform_matrix" name="platform_matrix" placeholder="e.g. iOS 17 Safari, Android 14 Chrome, Windows Edge">
         </div>
 
-        <div class="field">
-          <label>Options</label>
-          <div class="toggles">
-            <label class="chk"><input type="checkbox" name="include_preconditions" checked> Include preconditions</label>
-            <label class="chk"><input type="checkbox" name="include_test_data" checked> Include test data</label>
-            <label class="chk"><input type="checkbox" name="generate_edge_cases" checked> Generate edge cases</label>
-          </div>
-        </div>
-
-        <button type="submit">Generate QA artifacts</button>
-        <span class="hint" style="margin-left:10px;">Each generation takes ~30–90s · you'll see your place in line.</span>
+        <button type="submit">Validate requirement →</button>
+        <span class="hint" style="margin-left:10px;">Step 1 of 2 — we analyze the requirement first, then you generate. You'll see your place in line.</span>
       </form>
     </div>
   </div>

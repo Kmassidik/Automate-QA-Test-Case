@@ -107,34 +107,21 @@ func backendView(s aiclient.BackendStatus) BackendView {
 
 type Option struct{ Value, Label string }
 
+// FormOptions are the simplified v1.3 form choices (review.md §2). Detail level,
+// test design technique, and priority scheme were removed — generation is always
+// detailed and priority is auto-mapped.
 type FormOptions struct {
 	ApplicationTypes []string
-	DetailLevels     []string
 	TestTypes        []string
-	Techniques       []string
 	OutputFormats    []Option
-	PrioritySchemes  []Option
 }
 
 var formOptions = FormOptions{
-	ApplicationTypes: []string{"Web", "Mobile", "API", "Desktop", "E-commerce", "CMS", "SaaS", "Embedded"},
-	DetailLevels:     []string{"Condensed", "Standard", "Detailed"},
-	TestTypes: []string{
-		"Functional", "Regression", "Negative", "Boundary", "Smoke", "Sanity",
-		"Integration", "E2E", "Performance", "Security", "Usability", "Accessibility", "UAT",
-	},
-	Techniques: []string{
-		"Equivalence Partitioning", "Boundary Value Analysis", "Decision Table",
-		"State Transition", "Pairwise",
-	},
+	ApplicationTypes: []string{"Web", "Mobile", "Desktop"},
+	TestTypes:        []string{"Positive", "Negative", "Edge case", "Trivial"},
 	OutputFormats: []Option{
 		{"step-by-step", "Step-by-step"},
 		{"gherkin", "Gherkin / BDD (Given-When-Then)"},
-		{"checklist", "Checklist"},
-	},
-	PrioritySchemes: []Option{
-		{"P0-P3", "P0–P3"},
-		{"Critical-Low", "Critical–Low"},
 	},
 }
 
@@ -152,9 +139,9 @@ var examples = []Example{
 		Requirement:     "As a registered user, I can reset my password by requesting a reset link sent to my email. The link expires after 30 minutes and can be used once. The new password must meet the password policy. After a successful reset, all existing sessions are invalidated.",
 	},
 	{
-		Name:            "Checkout payment (API)",
-		ApplicationType: "API",
-		Requirement:     "POST /checkout accepts a cart ID and payment token, charges the customer, and returns an order confirmation. It must reject expired tokens, insufficient funds, and duplicate submissions (idempotency key). On success it returns 201 with an order ID.",
+		Name:            "Checkout payment",
+		ApplicationType: "Web",
+		Requirement:     "The checkout flow accepts a cart and a payment token, charges the customer, and returns an order confirmation. It must reject expired tokens, insufficient funds, and duplicate submissions (idempotency key). On success it shows an order ID.",
 	},
 	{
 		Name:            "Mobile login with OTP",

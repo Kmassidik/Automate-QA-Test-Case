@@ -292,18 +292,22 @@ func (s *Server) renderPartialError(w http.ResponseWriter, msg string) {
 }
 
 // parseForm maps the input form (PRD §5.1) to a GenerateRequest.
+// parseForm maps the simplified v1.3 form (review.md §2). Removed fields are
+// hardcoded to sensible defaults: QA is detail-oriented (always Detailed +
+// always include preconditions/test-data/edge-cases) and priority is always
+// auto-mapped (P0-P3). Test design technique is no longer requested.
 func parseForm(r *http.Request) contract.GenerateRequest {
 	return contract.GenerateRequest{
 		Requirement:          trimLimit(r.FormValue("requirement"), 3000),
 		ApplicationType:      r.FormValue("application_type"),
-		DetailLevel:          r.FormValue("detail_level"),
+		DetailLevel:          "Detailed",
 		TestTypes:            r.Form["test_types"],
-		TestDesignTechniques: r.Form["test_design_techniques"],
+		TestDesignTechniques: nil,
 		OutputFormat:         r.FormValue("output_format"),
-		PriorityScheme:       r.FormValue("priority_scheme"),
-		IncludePreconditions: r.FormValue("include_preconditions") != "",
-		IncludeTestData:      r.FormValue("include_test_data") != "",
-		GenerateEdgeCases:    r.FormValue("generate_edge_cases") != "",
+		PriorityScheme:       "P0-P3",
+		IncludePreconditions: true,
+		IncludeTestData:      true,
+		GenerateEdgeCases:    true,
 		PlatformMatrix:       r.FormValue("platform_matrix"),
 	}
 }
