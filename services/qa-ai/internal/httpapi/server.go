@@ -3,7 +3,6 @@
 package httpapi
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -13,16 +12,20 @@ import (
 	"qa-ai/internal/contract"
 	"qa-ai/internal/generate"
 	"qa-ai/internal/ollama"
+	"qa-ai/internal/platform"
+	"qa-ai/internal/readiness"
 )
 
 type Server struct {
-	gen *generate.Generator
-	llm *ollama.Client
-	log *slog.Logger
+	gen  *generate.Generator
+	llm  *ollama.Client
+	rd   *readiness.Readiness
+	plat platform.Info
+	log  *slog.Logger
 }
 
-func New(gen *generate.Generator, llm *ollama.Client, log *slog.Logger) *Server {
-	return &Server{gen: gen, llm: llm, log: log}
+func New(gen *generate.Generator, llm *ollama.Client, rd *readiness.Readiness, plat platform.Info, log *slog.Logger) *Server {
+	return &Server{gen: gen, llm: llm, rd: rd, plat: plat, log: log}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -33,15 +36,35 @@ func (s *Server) Routes() http.Handler {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-	if err := s.llm.Health(ctx); err != nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"status": "degraded", "ollama": err.Error(), "model": s.llm.Model(),
-		})
-		return
+	// Readiness is driven by the warmup loop (daemon reachable + model present).
+	// It already carries OS-aware guidance, so /healthz just reflects it.
+	snap := s.rd.Snapshot()
+	body := map[string]any{
+		"status":   readinessStatus(snap.State),
+		"state":    snap.State,
+		"detail":   snap.Detail,
+		"model":    s.llm.Model(),
+		"platform": s.plat.Label(),
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "model": s.llm.Model()})
+	if snap.Progress != "" {
+		body["progress"] = snap.Progress
+	}
+	code := http.StatusOK
+	if !s.rd.Ready() {
+		code = http.StatusServiceUnavailable
+	}
+	writeJSON(w, code, body)
+}
+
+func readinessStatus(s readiness.State) string {
+	switch s {
+	case readiness.StateReady:
+		return "ok"
+	case readiness.StatePulling:
+		return "pulling"
+	default:
+		return "degraded"
+	}
 }
 
 func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +75,18 @@ func (s *Server) handleGenerate(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Requirement) == 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "requirement is required"})
+		return
+	}
+
+	// Fail fast with the warmup's actionable reason instead of attempting a call
+	// that will just time out against a missing daemon/model.
+	if !s.rd.Ready() {
+		snap := s.rd.Snapshot()
+		msg := snap.Detail
+		if snap.State == readiness.StatePulling {
+			msg = "Model is still downloading (" + snap.Progress + "). Please retry shortly."
+		}
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": msg, "state": snap.State})
 		return
 	}
 

@@ -78,14 +78,37 @@ No Nix? Each service builds with the stdlib only:
 (cd services/qa-core && make build && ./bin/qa-core)
 ```
 
-## Deploy (Mac Mini, Colima)
+## The model is pulled automatically
 
-Ollama stays native; only the Go services are containerized.
+`qa-ai` runs an OS-aware warmup on boot: it waits for the Ollama daemon, then
+**auto-pulls `qwen2.5:7b` if it's missing** (streaming progress to logs) and only
+then accepts generations. While it's not ready, `/healthz` and the UI show why —
+with guidance tailored to your OS:
+
+- **macOS:** "run Ollama natively (`ollama serve`) — it can't use Metal inside Docker."
+- **Linux:** "run `ollama serve`, or `docker run … ollama/ollama`; the model is pulled automatically."
+
+So the only manual step is having the **daemon** running. Disable auto-pull with
+`OLLAMA_AUTO_PULL=false`.
+
+## Deploy
+
+**macOS (Mac Mini, Colima)** — Ollama stays native (Metal); only the Go services
+are containerized:
 
 ```bash
 ollama serve &                    # native, Metal-accelerated
-ollama pull qwen2.5:7b
 ACCESS_CODE=your-shared-code docker compose up -d --build
+# qa-ai auto-pulls qwen2.5:7b on first boot.
+```
+
+**Linux** — Ollama can run in Docker too (GPU is reachable from containers), so
+the whole stack is one compose file:
+
+```bash
+ACCESS_CODE=your-shared-code docker compose -f compose.linux.yml up -d --build
+# Ollama runs as a container; the model is cached in a named volume.
+# For an NVIDIA GPU, see the deploy block in compose.linux.yml.
 ```
 
 ## Make targets (per service)

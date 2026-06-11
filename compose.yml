@@ -13,6 +13,8 @@ services:
       OLLAMA_NUM_CTX: "8192"
       MAX_JSON_RETRIES: "3"
       GEN_TIMEOUT: "180s"
+      OLLAMA_AUTO_PULL: "true"
+      QA_IN_CONTAINER: "1"
     extra_hosts:
       # Make host.docker.internal resolvable on Linux/Colima as well as Docker Desktop.
       - "host.docker.internal:host-gateway"
