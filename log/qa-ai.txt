@@ -1,0 +1,10 @@
+cd services/qa-ai && make build
+./bin/qa-ai 
+/mnt/storage/github-learning/Automate-QA-Test-Case/services/qa-ai
+CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/qa-ai ./cmd/qa-ai
+{"time":"2026-06-11T14:43:37.364519581+07:00","level":"INFO","msg":"qa-ai listening","addr":":8081","platform":"Linux (native)","model":"qwen2.5:7b","ollama":"http://localhost:11434","auto_pull":true}
+{"time":"2026-06-11T14:43:37.365036861+07:00","level":"WARN","msg":"Ollama not reachable — waiting","platform":"Linux (native)","url":"http://localhost:11434","fix":"Linux detected. Start Ollama with `ollama serve` (native), or run it in Docker (`docker run -d -p 11434:11434 ollama/ollama`). For an NVIDIA GPU, install the container toolkit. The model is pulled automatically once Ollama is reachable."}
+{"time":"2026-06-11T14:45:17.450442507+07:00","level":"INFO","msg":"qa-ai ready","platform":"Linux (native)","model":"qwen2.5:7b"}
+{"time":"2026-06-11T14:50:38.625190221+07:00","level":"INFO","msg":"generate ok","dur":138649328731,"test_cases":4}
+{"time":"2026-06-11T14:58:19.701703844+07:00","level":"INFO","msg":"generate ok","dur":96910275050,"test_cases":2}
+^C{"time":"2026-06-11T15:01:40.388990211+07:00","level":"INFO","msg":"shutting down"}

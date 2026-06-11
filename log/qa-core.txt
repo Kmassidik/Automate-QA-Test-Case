@@ -1,0 +1,33 @@
+ACCESS_CODE=demo123 ./bin/qa-core
+{"time":"2026-06-11T14:45:51.151501428+07:00","level":"INFO","msg":"qa-core listening","addr":":8080","qa_ai":"http://localhost:8081","queue_buffer":256}
+{"time":"2026-06-11T14:46:01.575449348+07:00","level":"INFO","msg":"http","method":"GET","path":"/","dur":887918}
+{"time":"2026-06-11T14:46:01.611521994+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/app.css","dur":3652371}
+{"time":"2026-06-11T14:46:01.611616293+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/htmx.min.js","dur":3328510}
+{"time":"2026-06-11T14:46:01.620775153+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/htmx.min.js","dur":229216}
+{"time":"2026-06-11T14:46:05.735537301+07:00","level":"INFO","msg":"http","method":"GET","path":"/","dur":239270}
+{"time":"2026-06-11T14:46:07.162979293+07:00","level":"INFO","msg":"http","method":"GET","path":"/","dur":217719}
+{"time":"2026-06-11T14:46:07.189635678+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/app.css","dur":79469}
+{"time":"2026-06-11T14:46:07.189955436+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/htmx.min.js","dur":107239}
+{"time":"2026-06-11T14:46:07.215084653+07:00","level":"INFO","msg":"http","method":"GET","path":"/favicon.ico","dur":17094}
+{"time":"2026-06-11T14:46:38.147167665+07:00","level":"INFO","msg":"http","method":"GET","path":"/","dur":24915}
+{"time":"2026-06-11T14:46:38.15047281+07:00","level":"INFO","msg":"http","method":"GET","path":"/access","dur":67205}
+{"time":"2026-06-11T14:46:38.184848884+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/app.css","dur":161071}
+{"time":"2026-06-11T14:46:38.262661021+07:00","level":"INFO","msg":"http","method":"GET","path":"/favicon.ico","dur":14898}
+{"time":"2026-06-11T14:46:38.26571731+07:00","level":"INFO","msg":"http","method":"GET","path":"/access","dur":77926}
+{"time":"2026-06-11T14:47:44.964535993+07:00","level":"INFO","msg":"http","method":"GET","path":"/access","dur":74391}
+{"time":"2026-06-11T14:47:45.15669176+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/app.css","dur":214803}
+{"time":"2026-06-11T14:47:45.167874649+07:00","level":"INFO","msg":"http","method":"GET","path":"/favicon.ico","dur":14981}
+{"time":"2026-06-11T14:47:57.371681668+07:00","level":"INFO","msg":"http","method":"POST","path":"/access","dur":46103}
+{"time":"2026-06-11T14:47:57.474129852+07:00","level":"INFO","msg":"http","method":"GET","path":"/","dur":1121423}
+{"time":"2026-06-11T14:47:57.570242584+07:00","level":"INFO","msg":"http","method":"GET","path":"/static/htmx.min.js","dur":261405}
+{"time":"2026-06-11T14:47:57.731504956+07:00","level":"INFO","msg":"http","method":"GET","path":"/favicon.ico","dur":18969}
+{"time":"2026-06-11T14:48:19.974693218+07:00","level":"INFO","msg":"http","method":"POST","path":"/generate","dur":391551}
+{"time":"2026-06-11T14:50:38.660061279+07:00","level":"INFO","msg":"http","method":"GET","path":"/result/a54d06f40743d779be","dur":1408223}
+{"time":"2026-06-11T14:52:04.549806+07:00","level":"INFO","msg":"http","method":"GET","path":"/export/markdown/a54d06f40743d779be","dur":243968}
+{"time":"2026-06-11T14:52:07.785852382+07:00","level":"INFO","msg":"http","method":"GET","path":"/export/jira-csv/a54d06f40743d779be","dur":129874}
+{"time":"2026-06-11T14:52:55.850068432+07:00","level":"INFO","msg":"http","method":"POST","path":"/access","dur":33655}
+{"time":"2026-06-11T14:52:55.891912917+07:00","level":"INFO","msg":"http","method":"GET","path":"/","dur":405385}
+{"time":"2026-06-11T14:56:42.790846309+07:00","level":"INFO","msg":"http","method":"POST","path":"/generate","dur":254837}
+{"time":"2026-06-11T14:58:19.743422822+07:00","level":"INFO","msg":"http","method":"GET","path":"/result/a946fbf1a26b658c0e","dur":706671}
+^C{"time":"2026-06-11T15:01:35.975494897+07:00","level":"INFO","msg":"shutting down"}
+03:01:45 ubuntu@ubuntu-kurnia qa-core ±|main✔|→ 
