@@ -36,11 +36,31 @@ const (
 	KindValidate Kind = "validate"
 )
 
+// StepState is the status of one step in a job's plan (the 1..N checklist a
+// multi-step runner advances through, surfaced live to the user).
+type StepState string
+
+const (
+	StepPending StepState = "pending"
+	StepRunning StepState = "running"
+	StepDone    StepState = "done"
+	StepFailed  StepState = "failed"
+)
+
+// Step is one unit of work in a job's plan, e.g. "Test cases for AC-3".
+type Step struct {
+	Label  string    `json:"label"`
+	State  StepState `json:"state"`
+	Detail string    `json:"detail,omitempty"`
+}
+
 type Job struct {
 	ID         string
 	Kind       Kind
 	State      State
 	Req        contract.GenerateRequest
+	Plan       []Step           // 1..N checklist the runner advances through
+	Partial    *contract.Result // accumulates as steps complete (in-memory temp store)
 	Result     *contract.Result
 	Err        string
 	EnqueuedAt time.Time
@@ -49,8 +69,67 @@ type Job struct {
 }
 
 // Runner performs the actual generation (the qa-ai HTTP call). Injected so the
-// queue stays transport-agnostic and testable.
-type Runner func(ctx context.Context, req contract.GenerateRequest) (contract.Result, error)
+// queue stays transport-agnostic and testable. A runner reports its 1..N plan
+// and advances it via the Progress handle, which the worker binds to the job.
+type Runner func(ctx context.Context, req contract.GenerateRequest, p *Progress) (contract.Result, error)
+
+// Progress lets a Runner publish its step plan and advance through it. Every
+// mutation updates the job (under the manager lock) and fires a broadcast, so
+// the browser sees "step 3 of 8" live over SSE — no polling.
+type Progress struct {
+	m   *Manager
+	job *Job
+}
+
+// Plan sets the initial step list (all pending).
+func (p *Progress) Plan(labels ...string) {
+	p.m.mu.Lock()
+	p.job.Plan = make([]Step, len(labels))
+	for i, l := range labels {
+		p.job.Plan[i] = Step{Label: l, State: StepPending}
+	}
+	p.m.mu.Unlock()
+	p.m.onChange()
+}
+
+// Append adds a step to a dynamic plan (used when N is discovered mid-run, e.g.
+// once acceptance criteria are known) and returns its index.
+func (p *Progress) Append(label string) int {
+	p.m.mu.Lock()
+	p.job.Plan = append(p.job.Plan, Step{Label: label, State: StepPending})
+	i := len(p.job.Plan) - 1
+	p.m.mu.Unlock()
+	p.m.onChange()
+	return i
+}
+
+func (p *Progress) set(i int, st StepState, detail string) {
+	p.m.mu.Lock()
+	if i >= 0 && i < len(p.job.Plan) {
+		p.job.Plan[i].State = st
+		if detail != "" {
+			p.job.Plan[i].Detail = detail
+		}
+	}
+	p.m.mu.Unlock()
+	p.m.onChange()
+}
+
+// Start/Done/Fail advance step i. Partial records intermediate results so a
+// streaming UI (and crash recovery) can read work-in-progress.
+func (p *Progress) Start(i int)               { p.set(i, StepRunning, "") }
+func (p *Progress) Done(i int, detail string) { p.set(i, StepDone, detail) }
+func (p *Progress) Fail(i int, detail string) { p.set(i, StepFailed, detail) }
+
+// Partial publishes the work-in-progress result (in-memory temp store) so a
+// streaming view can render rows as they land.
+func (p *Progress) Partial(res contract.Result) {
+	p.m.mu.Lock()
+	cp := res
+	p.job.Partial = &cp
+	p.m.mu.Unlock()
+	p.m.onChange()
+}
 
 // ErrQueueFull is returned when the buffered channel is saturated (backpressure
 // instead of unbounded memory growth).
@@ -166,8 +245,9 @@ func (m *Manager) runOne(ctx context.Context, job *Job) {
 		run = m.validator
 	}
 
+	prog := &Progress{m: m, job: job}
 	jobCtx, cancel := context.WithTimeout(ctx, m.genTimeout)
-	res, err := run(jobCtx, job.Req)
+	res, err := run(jobCtx, job.Req, prog)
 	cancel()
 
 	m.mu.Lock()
@@ -241,6 +321,7 @@ type JobView struct {
 	ETA      time.Duration // estimated time until this job completes
 	ETAKnown bool
 	Err      string
+	Plan     []Step // 1..N step checklist (nil for single-shot / queued jobs)
 }
 
 func (m *Manager) JobView(id string) (JobView, bool) {
@@ -251,6 +332,9 @@ func (m *Manager) JobView(id string) (JobView, bool) {
 		return JobView{}, false
 	}
 	v := JobView{ID: id, State: job.State, Err: job.Err}
+	if len(job.Plan) > 0 {
+		v.Plan = append([]Step(nil), job.Plan...) // copy under lock
+	}
 
 	if job.State == StateQueued {
 		v.Position = indexOf(m.queued, id) + 1 // 1-based

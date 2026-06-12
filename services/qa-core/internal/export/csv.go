@@ -24,8 +24,8 @@ func QARepositoryRows(r contract.Result, opt Options) (header []string, rows [][
 	rows = make([][]string, 0, len(r.TestCases))
 	for i, tc := range r.TestCases {
 		rows = append(rows, []string{
-			fallback(tc.ID, "TC-"+itoa(i+1)),    // TC ID
-			strings.Join(tc.Covers, "; "),        // AC ID
+			fallback(tc.ID, "TC-"+itoa(i+1)),      // TC ID
+			strings.Join(tc.Covers, "; "),         // AC ID
 			moduleForTC(d, tc),                    // Module/Feature
 			tc.Title,                              // Title/Scenario
 			strings.Join(tc.Preconditions, "\n"),  // Precondition

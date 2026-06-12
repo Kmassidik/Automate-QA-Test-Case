@@ -53,18 +53,28 @@ func statusView(s queue.Snapshot) StatusView {
 	return v
 }
 
+// StepView is one plan step for the template + SSE.
+type StepView struct {
+	Label  string `json:"label"`
+	State  string `json:"state"`
+	Detail string `json:"detail,omitempty"`
+}
+
 // JobStatusView is a submitter's personal status (template + SSE `you` object).
 type JobStatusView struct {
-	ID         string `json:"id"`
-	State      string `json:"state"`
-	Position   int    `json:"position"`
-	ETASeconds int    `json:"eta_seconds"`
-	ETAKnown   bool   `json:"eta_known"`
-	Error      string `json:"error"`
+	ID         string     `json:"id"`
+	State      string     `json:"state"`
+	Position   int        `json:"position"`
+	ETASeconds int        `json:"eta_seconds"`
+	ETAKnown   bool       `json:"eta_known"`
+	Error      string     `json:"error"`
+	Steps      []StepView `json:"steps,omitempty"`
+	Percent    int        `json:"percent"`    // 0..100, share of done steps
+	StepLabel  string     `json:"step_label"` // current running (or last done) step
 }
 
 func jobView(v queue.JobView) JobStatusView {
-	return JobStatusView{
+	jv := JobStatusView{
 		ID:         v.ID,
 		State:      string(v.State),
 		Position:   v.Position,
@@ -72,6 +82,23 @@ func jobView(v queue.JobView) JobStatusView {
 		ETAKnown:   v.ETAKnown,
 		Error:      v.Err,
 	}
+	if len(v.Plan) > 0 {
+		done := 0
+		for _, s := range v.Plan {
+			jv.Steps = append(jv.Steps, StepView{Label: s.Label, State: string(s.State), Detail: s.Detail})
+			switch s.State {
+			case queue.StepDone:
+				done++
+			case queue.StepRunning:
+				jv.StepLabel = s.Label
+			}
+		}
+		jv.Percent = done * 100 / len(v.Plan)
+		if jv.StepLabel == "" && done > 0 { // between steps: show the last finished one
+			jv.StepLabel = jv.Steps[done-1].Label
+		}
+	}
+	return jv
 }
 
 // BackendView is the real generation-backend state for the header (template +

@@ -12,6 +12,16 @@
       </div>
     </div>
   </div>
+
+  <!-- Determinate progress (filled once the runner publishes a 1..N plan) -->
+  <div id="wait-progress" style="{{if not .Job.Steps}}display:none;{{end}}margin:14px 0 6px;">
+    <div class="bar" style="max-width:none;"><span id="wait-bar" style="width:{{.Job.Percent}}%"></span></div>
+    <div id="wait-step" class="muted" style="font-size:13px;margin-top:6px;">{{.Job.StepLabel}}</div>
+  </div>
+  <ul id="wait-steps" class="step-list" style="{{if not .Job.Steps}}display:none;{{end}}">
+    {{range .Job.Steps}}<li data-state="{{.State}}">{{.Label}}{{if .Detail}} <span class="muted">· {{.Detail}}</span>{{end}}</li>{{end}}
+  </ul>
+
   <p class="hint" style="margin-bottom:0;">Live updates, no refresh needed. Each job runs one-at-a-time on local hardware.</p>
 </div>
 
@@ -28,6 +38,21 @@
     return "~" + m + "m" + (r ? " " + r + "s" : "");
   }
 
+  function renderSteps(d) {
+    if (!d.steps || !d.steps.length) return;
+    document.getElementById("wait-progress").style.display = "";
+    document.getElementById("wait-bar").style.width = d.percent + "%";
+    document.getElementById("wait-step").textContent =
+      d.step_label ? (d.step_label + " · " + d.percent + "%") : (d.percent + "%");
+    var ul = document.getElementById("wait-steps");
+    ul.style.display = "";
+    ul.innerHTML = d.steps.map(function (s) {
+      var mark = s.state === "done" ? "✓" : s.state === "running" ? "⏳" : s.state === "failed" ? "✕" : "○";
+      var detail = s.detail ? ' <span class="muted">· ' + s.detail + "</span>" : "";
+      return '<li data-state="' + s.state + '">' + mark + " " + s.label + detail + "</li>";
+    }).join("");
+  }
+
   es.addEventListener("tick", function (ev) {
     var d = JSON.parse(ev.data).you;
     if (!d) return;
@@ -36,13 +61,13 @@
 
     if (d.state === "done" || d.state === "failed") {
       es.close();
-      // Pull the rendered result (or error) into the panel.
       htmx.ajax("GET", "/result/" + job, { target: "#panel", swap: "innerHTML" });
       return;
     }
     if (d.state === "running") {
       if (line) line.textContent = "Generating your artifacts now…";
       if (eta) eta.textContent = d.eta_known ? "Almost there — " + fmt(d.eta_seconds) : "Working…";
+      renderSteps(d);
     } else {
       if (line) line.textContent = "You're #" + d.position + " in line.";
       if (eta) eta.textContent = d.eta_known ? "Estimated " + fmt(d.eta_seconds) : "Estimating…";

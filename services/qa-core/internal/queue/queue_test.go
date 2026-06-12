@@ -16,7 +16,7 @@ import (
 // jobs concurrently (PRD §5.4/§6).
 func TestOneAtATime(t *testing.T) {
 	var concurrent, maxConcurrent int32
-	runner := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+	runner := func(ctx context.Context, _ contract.GenerateRequest, _ *Progress) (contract.Result, error) {
 		c := atomic.AddInt32(&concurrent, 1)
 		if c > atomic.LoadInt32(&maxConcurrent) {
 			atomic.StoreInt32(&maxConcurrent, c)
@@ -49,7 +49,7 @@ func TestOneAtATime(t *testing.T) {
 // TestQueueFull asserts backpressure rather than unbounded growth.
 func TestQueueFull(t *testing.T) {
 	block := make(chan struct{})
-	runner := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+	runner := func(ctx context.Context, _ contract.GenerateRequest, _ *Progress) (contract.Result, error) {
 		<-block // first job blocks, holding the worker
 		return contract.Result{}, nil
 	}
@@ -76,7 +76,7 @@ func TestQueueFull(t *testing.T) {
 func TestJobViewPosition(t *testing.T) {
 	block := make(chan struct{})
 	var once sync.Once
-	runner := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+	runner := func(ctx context.Context, _ contract.GenerateRequest, _ *Progress) (contract.Result, error) {
 		once.Do(func() { <-block }) // hold only the first job
 		return contract.Result{}, nil
 	}
@@ -100,11 +100,11 @@ func TestJobViewPosition(t *testing.T) {
 // Validator while KindGenerate runs the Runner — both through the one queue.
 func TestValidateKindRoutesToValidator(t *testing.T) {
 	var gen, val int32
-	runner := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+	runner := func(ctx context.Context, _ contract.GenerateRequest, _ *Progress) (contract.Result, error) {
 		atomic.AddInt32(&gen, 1)
 		return contract.Result{TestCases: []contract.TestCase{{ID: "TC-1"}}}, nil
 	}
-	validator := func(ctx context.Context, _ contract.GenerateRequest) (contract.Result, error) {
+	validator := func(ctx context.Context, _ contract.GenerateRequest, _ *Progress) (contract.Result, error) {
 		atomic.AddInt32(&val, 1)
 		return contract.Result{RequirementAnalysis: []contract.RequirementFeature{{Feature: "f"}}}, nil
 	}
