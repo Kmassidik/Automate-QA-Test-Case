@@ -37,10 +37,16 @@ func (c *Client) Validate(ctx context.Context, req contract.GenerateRequest) (co
 	return c.post(ctx, "/validate", req)
 }
 
+// Stage posts to qa-ai's /stage and returns a partial result for one pipeline
+// stage (analysis / test cases for one AC / aux).
+func (c *Client) Stage(ctx context.Context, sr contract.StageRequest) (contract.Result, error) {
+	return c.post(ctx, "/stage", sr)
+}
+
 // post is the shared request path. It honors ctx (the per-job timeout) in
 // addition to the client timeout, and surfaces qa-ai's error body verbatim.
-func (c *Client) post(ctx context.Context, path string, req contract.GenerateRequest) (contract.Result, error) {
-	buf, err := json.Marshal(req)
+func (c *Client) post(ctx context.Context, path string, reqBody any) (contract.Result, error) {
+	buf, err := json.Marshal(reqBody)
 	if err != nil {
 		return contract.Result{}, fmt.Errorf("marshal request: %w", err)
 	}

@@ -81,6 +81,12 @@ type Progress struct {
 	job *Job
 }
 
+// NewProgress returns a Progress that reports against job using the manager's
+// lock + broadcast. The worker uses it; orchestrators/tests can too.
+func (m *Manager) NewProgress(job *Job) *Progress {
+	return &Progress{m: m, job: job}
+}
+
 // Plan sets the initial step list (all pending).
 func (p *Progress) Plan(labels ...string) {
 	p.m.mu.Lock()
@@ -245,7 +251,7 @@ func (m *Manager) runOne(ctx context.Context, job *Job) {
 		run = m.validator
 	}
 
-	prog := &Progress{m: m, job: job}
+	prog := m.NewProgress(job)
 	jobCtx, cancel := context.WithTimeout(ctx, m.genTimeout)
 	res, err := run(jobCtx, job.Req, prog)
 	cancel()

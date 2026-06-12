@@ -23,6 +23,23 @@ type GenerateRequest struct {
 // IsAPI reports whether API testing artifacts (§5.2.G) should be produced.
 func (r GenerateRequest) IsAPI() bool { return r.ApplicationType == "API" }
 
+// Stage names a single unit of the batched generation pipeline (mirrors qa-ai).
+type Stage string
+
+const (
+	StageAnalysis  Stage = "analysis"
+	StageTestCases Stage = "test_cases"
+	StageAux       Stage = "aux"
+)
+
+// StageRequest is the body qa-core sends to qa-ai's POST /stage.
+type StageRequest struct {
+	Stage      Stage                `json:"stage"`
+	Req        GenerateRequest      `json:"req"`
+	AC         *AcceptanceCriterion `json:"ac,omitempty"`
+	StartIndex int                  `json:"start_index,omitempty"`
+}
+
 // ----- Result (LLM Output Contract, PRD §7) -----
 
 type Result struct {

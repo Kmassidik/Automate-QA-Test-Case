@@ -7,7 +7,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,6 +19,7 @@ import (
 	"qa-core/internal/backend"
 	"qa-core/internal/contract"
 	"qa-core/internal/eta"
+	"qa-core/internal/orchestrator"
 	"qa-core/internal/queue"
 	"qa-core/internal/sse"
 	"qa-core/web"
@@ -45,7 +45,7 @@ func main() {
 		Buffer:     cfg.queueBuffer,
 		GenTimeout: cfg.aiTimeout,
 		ETA:        etaTracker,
-		Runner:     genRunner(ai),
+		Runner:     orchestrator.GenRunner(ai), // batched, per-AC, step-by-step
 		Validator:  validateRunner(ai),
 		OnChange:   bc.Publish,
 	})
@@ -84,22 +84,6 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = httpSrv.Shutdown(shutdownCtx)
-}
-
-// genRunner wraps the qa-ai full generation as a single-step plan. Commit 3
-// replaces this with the batched, per-AC orchestrator that reports 1..N steps.
-func genRunner(ai *aiclient.Client) queue.Runner {
-	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
-		p.Plan("Generating test cases")
-		p.Start(0)
-		res, err := ai.Generate(ctx, req)
-		if err != nil {
-			p.Fail(0, err.Error())
-			return res, err
-		}
-		p.Done(0, fmt.Sprintf("%d test cases", len(res.TestCases)))
-		return res, nil
-	}
 }
 
 func validateRunner(ai *aiclient.Client) queue.Runner {
