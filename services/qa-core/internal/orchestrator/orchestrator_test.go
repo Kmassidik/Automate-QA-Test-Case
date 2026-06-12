@@ -41,9 +41,9 @@ func (f *fakeAI) Stage(_ context.Context, sr contract.StageRequest) (contract.Re
 
 func TestRunAssemblesBatches(t *testing.T) {
 	ai := &fakeAI{}
-	m := queue.New(queue.Config{Runner: GenRunner(ai)})
+	m := queue.New(queue.Config{Runner: GenRunner(ai, nil)})
 	// drive Run directly via a job's Progress by using the manager's runner path:
-	res, err := Run(context.Background(), contract.GenerateRequest{Requirement: "reset"}, mkProgress(m), ai)
+	res, err := Run(context.Background(), contract.GenerateRequest{Requirement: "reset"}, mkProgress(m), ai, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

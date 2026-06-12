@@ -24,14 +24,25 @@ type StageClient interface {
 	Stage(ctx context.Context, sr contract.StageRequest) (contract.Result, error)
 }
 
+// Snapshotter persists a work-in-progress result after each step (e.g. a
+// markdown temp file). Optional — nil means in-memory only.
+type Snapshotter func(jobID string, res contract.Result)
+
 // GenRunner returns a queue.Runner that generates via the batched pipeline.
-func GenRunner(ai StageClient) queue.Runner {
+// snap may be nil (memory-only temp store).
+func GenRunner(ai StageClient, snap Snapshotter) queue.Runner {
 	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
-		return Run(ctx, req, p, ai)
+		return Run(ctx, req, p, ai, snap)
 	}
 }
 
-func Run(ctx context.Context, req contract.GenerateRequest, p *queue.Progress, ai StageClient) (contract.Result, error) {
+func Run(ctx context.Context, req contract.GenerateRequest, p *queue.Progress, ai StageClient, snap Snapshotter) (contract.Result, error) {
+	save := func(res contract.Result) {
+		p.Partial(res) // in-memory temp store (source of truth)
+		if snap != nil {
+			snap(p.JobID(), res) // optional human-readable markdown trace
+		}
+	}
 	p.Plan("Analyzing requirement & deriving acceptance criteria")
 
 	// Stage 1 — analysis + acceptance criteria.
@@ -84,7 +95,7 @@ func Run(ctx context.Context, req contract.GenerateRequest, p *queue.Progress, a
 		}
 		p.Done(step, fmt.Sprintf("%d cases", len(out.TestCases)))
 		result.TestCases = renumber(cases)
-		p.Partial(result) // publish work-in-progress so a streaming UI can fill rows
+		save(result) // publish WIP so a streaming UI fills rows + snapshot
 	}
 	result.TestCases = renumber(cases)
 
@@ -110,6 +121,7 @@ func Run(ctx context.Context, req contract.GenerateRequest, p *queue.Progress, a
 	result.TraceabilityScore = computeTraceability(result.AcceptanceCriteria, result.TestCases, result.CoverageSummary, result.Ambiguities)
 	p.Done(covStep, result.TraceabilityScore.Rating)
 
+	save(result) // final snapshot
 	return result, nil
 }
 

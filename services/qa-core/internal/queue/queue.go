@@ -87,6 +87,9 @@ func (m *Manager) NewProgress(job *Job) *Progress {
 	return &Progress{m: m, job: job}
 }
 
+// JobID is the id of the job this Progress reports for (immutable; lock-free).
+func (p *Progress) JobID() string { return p.job.ID }
+
 // Plan sets the initial step list (all pending).
 func (p *Progress) Plan(labels ...string) {
 	p.m.mu.Lock()

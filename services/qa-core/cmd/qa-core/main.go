@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"qa-core/internal/backend"
 	"qa-core/internal/contract"
 	"qa-core/internal/eta"
+	"qa-core/internal/export"
 	"qa-core/internal/orchestrator"
 	"qa-core/internal/queue"
 	"qa-core/internal/sse"
@@ -45,7 +47,7 @@ func main() {
 		Buffer:     cfg.queueBuffer,
 		GenTimeout: cfg.aiTimeout,
 		ETA:        etaTracker,
-		Runner:     orchestrator.GenRunner(ai), // batched, per-AC, step-by-step
+		Runner:     orchestrator.GenRunner(ai, snapshotter(cfg.snapshotDir, log)), // batched, per-AC, step-by-step
 		Validator:  validateRunner(ai),
 		OnChange:   bc.Publish,
 	})
@@ -86,6 +88,25 @@ func main() {
 	_ = httpSrv.Shutdown(shutdownCtx)
 }
 
+// snapshotter returns an orchestrator.Snapshotter that writes a markdown trace
+// of the work-in-progress result to dir/<jobID>.md after each step. Returns nil
+// when dir is empty (in-memory only — the PRD's no-persistence default).
+func snapshotter(dir string, log *slog.Logger) orchestrator.Snapshotter {
+	if dir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		log.Warn("snapshot dir unavailable; disabling snapshots", "dir", dir, "err", err)
+		return nil
+	}
+	return func(jobID string, res contract.Result) {
+		path := filepath.Join(dir, jobID+".md")
+		if err := os.WriteFile(path, export.Markdown(res, export.Options{}), 0o644); err != nil {
+			log.Warn("snapshot write failed", "path", path, "err", err)
+		}
+	}
+}
+
 func validateRunner(ai *aiclient.Client) queue.Runner {
 	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
 		p.Plan("Analyzing requirement")
@@ -107,6 +128,7 @@ type config struct {
 	queueBuffer int
 	etaWindow   int
 	aiTimeout   time.Duration
+	snapshotDir string
 }
 
 func loadConfig() (config, error) {
@@ -117,6 +139,7 @@ func loadConfig() (config, error) {
 		queueBuffer: envInt("QUEUE_BUFFER", 256),
 		etaWindow:   envInt("ETA_WINDOW", 20),
 		aiTimeout:   envDuration("QA_AI_TIMEOUT", 200*time.Second),
+		snapshotDir: os.Getenv("SNAPSHOT_DIR"), // empty => in-memory only
 	}
 	if c.accessCode == "" {
 		return c, errors.New("ACCESS_CODE is required (set it in .env or the deploy environment)")
