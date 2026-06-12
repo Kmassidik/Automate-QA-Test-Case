@@ -42,11 +42,14 @@ func main() {
 
 	// Wiring: broadcaster <- queue OnChange; queue runner -> qa-ai client.
 	bc := sse.NewBroadcaster()
-	ai := aiclient.New(cfg.aiURL, cfg.aiTimeout)
+	ai := aiclient.New(cfg.aiURL, cfg.stageTimeout) // per qa-ai call (one stage)
 	etaTracker := eta.New(cfg.etaWindow)
 	q := queue.New(queue.Config{
-		Buffer:     cfg.queueBuffer,
-		GenTimeout: cfg.aiTimeout,
+		Buffer: cfg.queueBuffer,
+		// Whole-job budget: the batched orchestrator makes many sequential stage
+		// calls (analysis + one per AC + aux), so this must be far larger than a
+		// single stage timeout or long jobs get canceled mid-flight.
+		GenTimeout: cfg.jobTimeout,
 		ETA:        etaTracker,
 		Runner:     orchestrator.GenRunner(ai, snapshotter(cfg.snapshotDir, log)), // batched, per-AC, step-by-step
 		Validator:  validateRunner(ai),
@@ -125,14 +128,15 @@ func validateRunner(ai *aiclient.Client) queue.Runner {
 }
 
 type config struct {
-	addr        string
-	aiURL       string
-	accessCode  string
-	queueBuffer int
-	etaWindow   int
-	aiTimeout   time.Duration
-	snapshotDir string
-	optionsFile string
+	addr         string
+	aiURL        string
+	accessCode   string
+	queueBuffer  int
+	etaWindow    int
+	stageTimeout time.Duration // one qa-ai call (a single pipeline stage)
+	jobTimeout   time.Duration // the whole batched generation (all stages)
+	snapshotDir  string
+	optionsFile  string
 }
 
 func loadConfig() (config, error) {
@@ -142,9 +146,13 @@ func loadConfig() (config, error) {
 		accessCode:  os.Getenv("ACCESS_CODE"),
 		queueBuffer: envInt("QUEUE_BUFFER", 256),
 		etaWindow:   envInt("ETA_WINDOW", 20),
-		aiTimeout:   envDuration("QA_AI_TIMEOUT", 200*time.Second),
-		snapshotDir: os.Getenv("SNAPSHOT_DIR"),                  // empty => in-memory only
-		optionsFile: env("OPTIONS_FILE", "./data/options.json"), // editable form vocabularies
+		// STAGE_TIMEOUT bounds a single qa-ai call; JOB_TIMEOUT bounds the whole
+		// batched run (many stages). QA_AI_TIMEOUT kept as a back-compat alias for
+		// the stage timeout. Job default is generous so multi-AC runs don't get cut.
+		stageTimeout: envDuration("STAGE_TIMEOUT", envDuration("QA_AI_TIMEOUT", 300*time.Second)),
+		jobTimeout:   envDuration("JOB_TIMEOUT", 1800*time.Second),
+		snapshotDir:  os.Getenv("SNAPSHOT_DIR"),                  // empty => in-memory only
+		optionsFile:  env("OPTIONS_FILE", "./data/options.json"), // editable form vocabularies
 	}
 	if c.accessCode == "" {
 		return c, errors.New("ACCESS_CODE is required (set it in .env or the deploy environment)")
