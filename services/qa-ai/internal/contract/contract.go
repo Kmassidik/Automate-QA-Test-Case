@@ -23,6 +23,26 @@ type GenerateRequest struct {
 // IsAPI reports whether API testing artifacts (§5.2.G) should be produced.
 func (r GenerateRequest) IsAPI() bool { return r.ApplicationType == "API" }
 
+// Stage names a single unit of the batched generation pipeline. qa-core's
+// orchestrator drives the stages 1-by-1 (analysis → test cases per AC → aux) so
+// each LLM call is small enough to fit context and reports live progress.
+type Stage string
+
+const (
+	StageAnalysis  Stage = "analysis"   // requirement_analysis + ambiguities + health + missing_areas + acceptance_criteria
+	StageTestCases Stage = "test_cases" // test cases covering ONE acceptance criterion
+	StageAux       Stage = "aux"        // edge_cases + test_data
+)
+
+// StageRequest is the body of POST /stage: which stage, the form, and (for
+// StageTestCases) the target AC plus the TC-ID numbering offset.
+type StageRequest struct {
+	Stage      Stage                `json:"stage"`
+	Req        GenerateRequest      `json:"req"`
+	AC         *AcceptanceCriterion `json:"ac,omitempty"`
+	StartIndex int                  `json:"start_index,omitempty"`
+}
+
 // ----- Result (LLM Output Contract, PRD §7) -----
 
 type Result struct {

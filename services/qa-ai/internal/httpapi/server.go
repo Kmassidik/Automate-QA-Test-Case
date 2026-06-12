@@ -38,6 +38,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /stats", s.handleStats)
 	mux.HandleFunc("POST /generate", s.handleGenerate)
 	mux.HandleFunc("POST /validate", s.handleValidate)
+	mux.HandleFunc("POST /stage", s.handleStage)
 	return mux
 }
 
@@ -136,6 +137,48 @@ func (s *Server) handleValidate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.log.Info("validate ok", "dur", time.Since(start), "features", len(res.RequirementAnalysis))
 	writeJSON(w, http.StatusOK, res)
+}
+
+// handleStage runs ONE stage of the batched pipeline (analysis / test cases for
+// one AC / aux) and returns a partial Result. Called repeatedly by qa-core's
+// step-by-step orchestrator.
+func (s *Server) handleStage(w http.ResponseWriter, r *http.Request) {
+	var sr contract.StageRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&sr); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request body: " + err.Error()})
+		return
+	}
+	if len(sr.Req.Requirement) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "requirement is required"})
+		return
+	}
+	if !s.gateReady(w) {
+		return
+	}
+	start := time.Now()
+	res, err := s.gen.GenerateStage(r.Context(), sr)
+	if err != nil {
+		s.writeGenErr(w, "stage:"+string(sr.Stage), err, start)
+		return
+	}
+	s.log.Info("stage ok", "stage", sr.Stage, "dur", time.Since(start),
+		"acs", len(res.AcceptanceCriteria), "test_cases", len(res.TestCases))
+	writeJSON(w, http.StatusOK, res)
+}
+
+// gateReady writes a 503 with the warmup reason and returns false if the model
+// isn't ready yet.
+func (s *Server) gateReady(w http.ResponseWriter) bool {
+	if s.rd.Ready() {
+		return true
+	}
+	snap := s.rd.Snapshot()
+	msg := snap.Detail
+	if snap.State == readiness.StatePulling {
+		msg = "Model is still downloading (" + snap.Progress + "). Please retry shortly."
+	}
+	writeJSON(w, http.StatusServiceUnavailable, map[string]any{"error": msg, "state": snap.State})
+	return false
 }
 
 // decodeAndGate decodes the request, enforces a non-empty requirement, and fails
