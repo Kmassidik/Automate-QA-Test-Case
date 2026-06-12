@@ -43,15 +43,33 @@ func statusView(s queue.Snapshot) StatusView {
 		ETAKnown:   s.ETAKnown,
 		ETASeconds: int(s.ETAPerJob.Seconds()),
 	}
-	switch {
-	case !s.Busy && s.QueueLen == 0:
+	if !s.Busy && s.QueueLen == 0 {
 		v.Label = "Available — submit now."
-	case s.QueueLen == 0:
-		v.Label = "Generating now."
-	default:
-		v.Label = "Generating now · " + itoa(s.QueueLen) + " in queue."
+		return v
+	}
+	// Busy: the banner is for a bystander deciding whether to submit. Count the
+	// running job too — "jobs ahead of you" = 1 running + everyone queued — and
+	// show the honest wait (rolling-avg ETA × jobs ahead).
+	eta := ""
+	if s.ETAKnown && s.ETAPerJob > 0 {
+		eta = " · " + humanDur(time.Duration(1+s.QueueLen)*s.ETAPerJob)
+	}
+	if s.QueueLen == 0 {
+		v.Label = "Someone's generating now" + eta + " — submit to take the next slot."
+	} else {
+		v.Label = "Someone's generating · " + itoa(s.QueueLen) + " waiting" + eta +
+			" — you'd be #" + itoa(s.QueueLen+1) + "."
 	}
 	return v
+}
+
+// humanDur renders a short "~45s" / "~2m" estimate for the busy banner.
+func humanDur(d time.Duration) string {
+	sec := int(d.Seconds() + 0.5)
+	if sec < 60 {
+		return "~" + itoa(sec) + "s"
+	}
+	return "~" + itoa((sec+30)/60) + "m"
 }
 
 // StepView is one plan step for the template + SSE.
