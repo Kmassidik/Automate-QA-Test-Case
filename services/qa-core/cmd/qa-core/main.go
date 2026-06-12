@@ -149,7 +149,9 @@ func loadConfig() (config, error) {
 		// STAGE_TIMEOUT bounds a single qa-ai call; JOB_TIMEOUT bounds the whole
 		// batched run (many stages). QA_AI_TIMEOUT kept as a back-compat alias for
 		// the stage timeout. Job default is generous so multi-AC runs don't get cut.
-		stageTimeout: envDuration("STAGE_TIMEOUT", envDuration("QA_AI_TIMEOUT", 300*time.Second)),
+		// Stage default covers a single qa-ai call PLUS its JSON-retry budget
+		// (1 + MAX_JSON_RETRIES attempts), so a retrying stage isn't cut off.
+		stageTimeout: envDuration("STAGE_TIMEOUT", envDuration("QA_AI_TIMEOUT", 600*time.Second)),
 		jobTimeout:   envDuration("JOB_TIMEOUT", 1800*time.Second),
 		snapshotDir:  os.Getenv("SNAPSHOT_DIR"),                  // empty => in-memory only
 		optionsFile:  env("OPTIONS_FILE", "./data/options.json"), // editable form vocabularies
