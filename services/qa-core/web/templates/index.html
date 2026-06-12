@@ -24,7 +24,11 @@
       {{else}}
       <span class="hint">model: {{if .Models.Active}}{{.Models.Active}}{{else}}backend offline{{end}}</span>
       {{end}}
-      <a href="/logout" class="hint" style="text-decoration:underline;">Sign out</a>
+      <div>
+        <a href="/settings" class="hint" style="text-decoration:underline;">Settings</a>
+        <span class="hint">·</span>
+        <a href="/logout" class="hint" style="text-decoration:underline;">Sign out</a>
+      </div>
     </div>
   </div>
   <p class="subtitle">Turn a requirement into structured QA artifacts — acceptance criteria, test cases, coverage, edge cases, scores.</p>
@@ -76,9 +80,16 @@
         </div>
 
         <div class="field">
-          <label>Test types</label>
+          <label>Case natures</label>
           <div class="checks">
-            {{range .Options.TestTypes}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}"{{if ne . "Trivial"}} checked{{end}}>{{.}}</label>{{end}}
+            {{range .Options.CaseNatures}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}"{{if ne . "Trivial"}} checked{{end}}>{{.}}</label>{{end}}
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Test dimensions <span class="hint">(functional + non-functional)</span></label>
+          <div class="checks">
+            {{range .Options.TestDimensions}}<label class="chk"><input type="checkbox" name="test_dimensions" value="{{.}}"{{if eq . "Functional"}} checked{{end}}>{{.}}</label>{{end}}
           </div>
         </div>
 

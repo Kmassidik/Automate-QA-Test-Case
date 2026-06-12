@@ -1,0 +1,37 @@
+{{define "settings.html"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings · QA Test Case Generator</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Form options</h1>
+    <a class="hint" href="/" style="text-decoration:underline;">← back to generator</a>
+  </div>
+  <p class="subtitle">Manage the dropdown / checkbox choices everyone sees on the form. One option per line. Saved globally.</p>
+
+  <form method="post" action="/settings">
+    <div class="card">
+      <div class="field">
+        <label for="application_types">Application types <span class="hint">(single-select dropdown)</span></label>
+        <textarea id="application_types" name="application_types" rows="4">{{.ApplicationTypes}}</textarea>
+      </div>
+      <div class="field">
+        <label for="case_natures">Case natures <span class="hint">(checkboxes — the nature of each test case)</span></label>
+        <textarea id="case_natures" name="case_natures" rows="5">{{.CaseNatures}}</textarea>
+      </div>
+      <div class="field">
+        <label for="test_dimensions">Test dimensions <span class="hint">(checkboxes — functional + non-functional concerns)</span></label>
+        <textarea id="test_dimensions" name="test_dimensions" rows="6">{{.TestDimensions}}</textarea>
+      </div>
+      <button type="submit">Save options</button>
+      <span class="hint" style="margin-left:10px;">Empty a list and it reverts to defaults. Output format stays fixed (code-coupled).</span>
+    </div>
+  </form>
+</div>
+</body>
+</html>{{end}}

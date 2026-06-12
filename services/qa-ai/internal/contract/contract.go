@@ -10,7 +10,8 @@ type GenerateRequest struct {
 	Model                string   `json:"model,omitempty"`        // active Ollama model; empty => qa-ai's configured default
 	ApplicationType      string   `json:"application_type"`       // Web · Mobile · API · Desktop · E-commerce · CMS · SaaS · Embedded
 	DetailLevel          string   `json:"detail_level"`           // Condensed · Standard · Detailed
-	TestTypes            []string `json:"test_types"`             // Functional · Regression · ...
+	TestTypes            []string `json:"test_types"`             // case natures: Positive · Negative · Edge case · Trivial
+	TestDimensions       []string `json:"test_dimensions"`        // Functional · Security · Performance · Accessibility · Usability
 	TestDesignTechniques []string `json:"test_design_techniques"` // EP · BVA · Decision Table · ...
 	OutputFormat         string   `json:"output_format"`          // step-by-step · gherkin · checklist
 	PriorityScheme       string   `json:"priority_scheme"`        // "P0-P3" · "Critical-Low"

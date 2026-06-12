@@ -21,3 +21,6 @@ tmp/
 # Nix
 result
 result-*
+
+# Editable form options store
+data/

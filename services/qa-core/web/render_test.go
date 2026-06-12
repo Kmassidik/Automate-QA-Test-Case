@@ -8,6 +8,7 @@ import (
 	"qa-core/internal/aiclient"
 	"qa-core/internal/contract"
 	"qa-core/internal/export"
+	"qa-core/internal/options"
 	"qa-core/internal/queue"
 )
 
@@ -54,12 +55,15 @@ func TestRenderAllTemplates(t *testing.T) {
 
 	exec(t, p, "access.html", map[string]any{"Error": "bad code"})
 	exec(t, p, "error.html", map[string]any{"Message": "boom"})
+	exec(t, p, "settings.html", map[string]any{
+		"ApplicationTypes": "Web\nMobile", "CaseNatures": "Positive\nNegative", "TestDimensions": "Security",
+	})
 
 	exec(t, p, "index.html", map[string]any{
 		"Status":    statusView(queue.Snapshot{Busy: true, QueueLen: 2}),
 		"Backend":   backendView(aiclient.BackendStatus{Reachable: true, State: "ready", Model: "qwen2.5:7b"}),
 		"Examples":  examples,
-		"Options":   formOptions,
+		"Options":   formViewFrom(options.Load("").Get()),
 		"Models":    ModelsView{OK: true, Active: "qwen2.5:7b", Available: []ModelChoice{{Name: "qwen2.5:7b", Size: "4.7 GB"}, {Name: "llama3.1:8b", Size: "4.9 GB"}}},
 		"Resources": StatsView{OK: true, CPUPercent: 23, MemPercent: 61, MemUsed: "9.8 GB", MemTotal: "16 GB", LoadedModel: "qwen2.5:7b · 4.7 GB (100% on GPU)"},
 	})

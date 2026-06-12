@@ -21,6 +21,7 @@ import (
 	"qa-core/internal/contract"
 	"qa-core/internal/eta"
 	"qa-core/internal/export"
+	"qa-core/internal/options"
 	"qa-core/internal/orchestrator"
 	"qa-core/internal/queue"
 	"qa-core/internal/sse"
@@ -58,8 +59,10 @@ func main() {
 	be := backend.NewMonitor(ai, bc.Publish)
 	be.Start(ctx, 3*time.Second)
 
+	optStore := options.Load(cfg.optionsFile) // editable form vocabularies (review.md #1)
+
 	access := web.NewAccess(cfg.accessCode)
-	srv, err := web.NewServer(access, q, bc, ai, be, log)
+	srv, err := web.NewServer(access, q, bc, ai, be, optStore, log)
 	if err != nil {
 		log.Error("server init", "err", err)
 		os.Exit(1)
@@ -129,6 +132,7 @@ type config struct {
 	etaWindow   int
 	aiTimeout   time.Duration
 	snapshotDir string
+	optionsFile string
 }
 
 func loadConfig() (config, error) {
@@ -139,7 +143,8 @@ func loadConfig() (config, error) {
 		queueBuffer: envInt("QUEUE_BUFFER", 256),
 		etaWindow:   envInt("ETA_WINDOW", 20),
 		aiTimeout:   envDuration("QA_AI_TIMEOUT", 200*time.Second),
-		snapshotDir: os.Getenv("SNAPSHOT_DIR"), // empty => in-memory only
+		snapshotDir: os.Getenv("SNAPSHOT_DIR"),                  // empty => in-memory only
+		optionsFile: env("OPTIONS_FILE", "./data/options.json"), // editable form vocabularies
 	}
 	if c.accessCode == "" {
 		return c, errors.New("ACCESS_CODE is required (set it in .env or the deploy environment)")

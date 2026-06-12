@@ -138,7 +138,11 @@ func writeRequirementAndOptions(b *strings.Builder, r contract.GenerateRequest) 
 	b.WriteString("\n\nGENERATION OPTIONS:\n")
 	writeKV(b, "Application type", r.ApplicationType)
 	writeKV(b, "Detail level", orDefault(r.DetailLevel, "Detailed"))
-	writeKV(b, "Test types", joinOr(r.TestTypes, "Positive, Negative, Edge case"))
+	writeKV(b, "Case natures", joinOr(r.TestTypes, "Positive, Negative, Edge case"))
+	if len(r.TestDimensions) > 0 {
+		writeKV(b, "Test dimensions to cover", strings.Join(r.TestDimensions, ", "))
+		b.WriteString("  (For each non-functional dimension requested, include concrete checks — e.g. Security: authz/input validation/rate limiting; Performance: load/latency/limits; Accessibility: WCAG/keyboard/contrast; Usability: error messaging/affordances.)\n")
+	}
 	if len(r.TestDesignTechniques) > 0 {
 		writeKV(b, "Test design techniques", strings.Join(r.TestDesignTechniques, ", "))
 	}

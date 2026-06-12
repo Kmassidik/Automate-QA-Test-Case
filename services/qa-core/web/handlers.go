@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"qa-core/internal/backend"
 	"qa-core/internal/contract"
 	"qa-core/internal/export"
+	"qa-core/internal/options"
 	"qa-core/internal/queue"
 	"qa-core/internal/sse"
 )
@@ -25,6 +27,7 @@ type Server struct {
 	bc     *sse.Broadcaster
 	ai     *aiclient.Client
 	be     *backend.Monitor
+	opts   *options.Store
 	log    *slog.Logger
 
 	// activeModel is the global, user-chosen Ollama model applied to every job.
@@ -45,7 +48,7 @@ func (s *Server) setActiveModel(m string) {
 	s.modelMu.Unlock()
 }
 
-func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclient.Client, be *backend.Monitor, log *slog.Logger) (*Server, error) {
+func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclient.Client, be *backend.Monitor, opts *options.Store, log *slog.Logger) (*Server, error) {
 	t, err := parseTemplates()
 	if err != nil {
 		return nil, err
@@ -57,6 +60,7 @@ func NewServer(access *Access, q *queue.Manager, bc *sse.Broadcaster, ai *aiclie
 		bc:     bc,
 		ai:     ai,
 		be:     be,
+		opts:   opts,
 		log:    log,
 	}, nil
 }
@@ -76,6 +80,8 @@ func (s *Server) Routes() http.Handler {
 	gated := http.NewServeMux()
 	gated.HandleFunc("GET /{$}", s.handleIndex)
 	gated.HandleFunc("GET /logout", s.handleLogout)
+	gated.HandleFunc("GET /settings", s.handleSettings)
+	gated.HandleFunc("POST /settings", s.handleSaveSettings)
 	gated.HandleFunc("POST /model", s.handleSetModel)
 	gated.HandleFunc("POST /validate", s.handleValidate)
 	gated.HandleFunc("POST /generate", s.handleGenerate)
@@ -95,10 +101,38 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"Status":    statusView(snap),
 		"Backend":   backendView(s.be.Current()),
 		"Examples":  examples,
-		"Options":   formOptions,
+		"Options":   formViewFrom(s.opts.Get()),
 		"Models":    s.modelView(r.Context()),
 		"Resources": statsView(s.be.CurrentStats()),
 	})
+}
+
+// handleSettings renders the editable form-vocabulary page (review.md #1).
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	o := s.opts.Get()
+	s.tmpl.render(w, "settings.html", map[string]any{
+		"ApplicationTypes": strings.Join(o.ApplicationTypes, "\n"),
+		"CaseNatures":      strings.Join(o.CaseNatures, "\n"),
+		"TestDimensions":   strings.Join(o.TestDimensions, "\n"),
+	})
+}
+
+// handleSaveSettings persists edited vocabularies (one option per line). Empty
+// lists fall back to defaults (handled in the store), so the form can't brick.
+func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.renderPartialError(w, "Could not read the form.")
+		return
+	}
+	o := options.Options{
+		ApplicationTypes: splitLines(r.FormValue("application_types")),
+		CaseNatures:      splitLines(r.FormValue("case_natures")),
+		TestDimensions:   splitLines(r.FormValue("test_dimensions")),
+	}
+	if err := s.opts.Set(o); err != nil {
+		s.log.Warn("settings persist failed", "err", err)
+	}
+	http.Redirect(w, r, "/settings", http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -342,6 +376,17 @@ func (s *Server) renderPartialError(w http.ResponseWriter, msg string) {
 	s.tmpl.render(w, "error.html", map[string]any{"Message": msg})
 }
 
+// splitLines parses a textarea (one option per line) into a trimmed list.
+func splitLines(s string) []string {
+	var out []string
+	for _, line := range strings.Split(s, "\n") {
+		if v := strings.TrimSpace(line); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // parseForm maps the input form (PRD §5.1) to a GenerateRequest.
 // parseForm maps the simplified v1.3 form (review.md §2). Removed fields are
 // hardcoded to sensible defaults: QA is detail-oriented (always Detailed +
@@ -352,7 +397,8 @@ func parseForm(r *http.Request) contract.GenerateRequest {
 		Requirement:          trimLimit(r.FormValue("requirement"), 3000),
 		ApplicationType:      r.FormValue("application_type"),
 		DetailLevel:          "Detailed",
-		TestTypes:            r.Form["test_types"],
+		TestTypes:            r.Form["test_types"],      // case natures
+		TestDimensions:       r.Form["test_dimensions"], // functional + non-functional
 		TestDesignTechniques: nil,
 		OutputFormat:         r.FormValue("output_format"),
 		PriorityScheme:       "P0-P3",

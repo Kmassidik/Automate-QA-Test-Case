@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"qa-core/internal/aiclient"
+	"qa-core/internal/options"
 	"qa-core/internal/queue"
 )
 
@@ -202,22 +203,29 @@ func statsView(s aiclient.Stats) StatsView {
 
 type Option struct{ Value, Label string }
 
-// FormOptions are the simplified v1.3 form choices (review.md §2). Detail level,
-// test design technique, and priority scheme were removed — generation is always
-// detailed and priority is auto-mapped.
-type FormOptions struct {
+// FormView are the form choices rendered into index.html. The three vocab lists
+// come from the editable options store (review.md #1); OutputFormats stay fixed
+// in code because each value is coupled to the renderer/exports.
+type FormView struct {
 	ApplicationTypes []string
-	TestTypes        []string
+	CaseNatures      []string
+	TestDimensions   []string
 	OutputFormats    []Option
 }
 
-var formOptions = FormOptions{
-	ApplicationTypes: []string{"Web", "Mobile", "Desktop"},
-	TestTypes:        []string{"Positive", "Negative", "Edge case", "Trivial"},
-	OutputFormats: []Option{
-		{"step-by-step", "Step-by-step"},
-		{"gherkin", "Gherkin / BDD (Given-When-Then)"},
-	},
+// outputFormats is intentionally NOT user-editable (each maps to renderer logic).
+var outputFormats = []Option{
+	{"step-by-step", "Step-by-step"},
+	{"gherkin", "Gherkin / BDD (Given-When-Then)"},
+}
+
+func formViewFrom(o options.Options) FormView {
+	return FormView{
+		ApplicationTypes: o.ApplicationTypes,
+		CaseNatures:      o.CaseNatures,
+		TestDimensions:   o.TestDimensions,
+		OutputFormats:    outputFormats,
+	}
 }
 
 // Example seeds the "example requirements" picker (PRD §5.3).
