@@ -245,11 +245,15 @@ func (s *Server) handleResult(w http.ResponseWriter, r *http.Request) {
 		}
 		opt := export.Options{PriorityScheme: job.Req.PriorityScheme, Requirement: job.Req.Requirement}
 		header, rows := export.QARepositoryRows(*job.Result, opt)
+		rtmHeader, rtmRows := export.RTMRows(*job.Result)
 		s.tmpl.render(w, "result.html", map[string]any{
-			"ID":     job.ID,
-			"Result": job.Result,
-			"Header": header,
-			"Rows":   rows,
+			"ID":        job.ID,
+			"Result":    job.Result,
+			"Header":    header,
+			"Rows":      rows,
+			"RTMHeader": rtmHeader,
+			"RTMRows":   rtmRows,
+			"Gaps":      export.GapCount(*job.Result),
 		})
 	case queue.StateFailed:
 		s.renderPartialError(w, "Generation failed: "+job.Err)
@@ -344,6 +348,9 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	case "markdown":
 		data = export.Markdown(*job.Result, opt)
 		contentType, filename = "text/markdown", "qa-report-"+id+".md"
+	case "rtm":
+		data, err = export.RTM(*job.Result, opt)
+		contentType, filename = "text/csv", "rtm-"+id+".csv"
 	default:
 		http.Error(w, "unknown export kind", http.StatusBadRequest)
 		return

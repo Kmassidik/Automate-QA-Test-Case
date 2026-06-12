@@ -56,6 +56,34 @@ func TestCSVExcelCompat(t *testing.T) {
 	}
 }
 
+func TestRTMMapsRequirementsAndFlagsGaps(t *testing.T) {
+	r := contract.Result{
+		AcceptanceCriteria: []contract.AcceptanceCriterion{
+			{ID: "AC-1", Description: "Link emailed", Module: "Auth", Severity: "High"},
+			{ID: "AC-2", Description: "Sessions invalidated", Module: "Security", Severity: "Critical"}, // uncovered -> gap
+		},
+		TestCases: []contract.TestCase{
+			{ID: "TC-1", Type: "Positive", Covers: []string{"AC-1"}},
+			{ID: "TC-2", Type: "Negative", Covers: []string{"AC-1"}},
+		},
+	}
+	header, rows := RTMRows(r)
+	if header[0] != "Requirement ID" || header[7] != "Status" {
+		t.Fatalf("unexpected RTM header: %v", header)
+	}
+	// AC-1: covered by TC-1 + TC-2, status Covered.
+	if rows[0][0] != "AC-1" || rows[0][4] != "TC-1; TC-2" || rows[0][6] != "2" || rows[0][7] != "Covered" {
+		t.Errorf("AC-1 row wrong: %v", rows[0])
+	}
+	// AC-2: no covering test -> gap.
+	if rows[1][0] != "AC-2" || rows[1][6] != "0" || rows[1][7] == "Covered" {
+		t.Errorf("AC-2 should be a gap: %v", rows[1])
+	}
+	if GapCount(r) != 1 {
+		t.Errorf("GapCount = %d, want 1", GapCount(r))
+	}
+}
+
 func TestQARepositoryUsesModelSetFields(t *testing.T) {
 	r := contract.Result{
 		AcceptanceCriteria: []contract.AcceptanceCriterion{{ID: "AC-1", Module: "Auth", Severity: "Low"}},

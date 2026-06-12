@@ -73,10 +73,12 @@ func TestRenderAllTemplates(t *testing.T) {
 	})
 
 	header, rows := export.QARepositoryRows(*sampleResult(), export.Options{PriorityScheme: "P0-P3"})
+	rtmHeader, rtmRows := export.RTMRows(*sampleResult())
 	out := exec(t, p, "result.html", map[string]any{
 		"ID": "job1", "Result": sampleResult(), "Header": header, "Rows": rows,
+		"RTMHeader": rtmHeader, "RTMRows": rtmRows, "Gaps": export.GapCount(*sampleResult()),
 	})
-	for _, want := range []string{"AC-1", "TC-1", "Requirement Health", "/export/qa-csv/job1", "Expired token"} {
+	for _, want := range []string{"AC-1", "TC-1", "Requirement Health", "/export/qa-csv/job1", "/export/rtm/job1", "Traceability matrix", "Expired token"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("result.html missing %q", want)
 		}

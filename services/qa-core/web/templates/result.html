@@ -6,6 +6,7 @@
       <h2 style="margin:0;">QA artifacts</h2>
       <div class="btn-row">
         <a class="btn btn-outline btn-sm" href="/export/qa-csv/{{.ID}}">QA CSV</a>
+        <a class="btn btn-outline btn-sm" href="/export/rtm/{{.ID}}">RTM CSV</a>
         <a class="btn btn-outline btn-sm" href="/export/jira-csv/{{.ID}}">Jira CSV</a>
         <a class="btn btn-outline btn-sm" href="/export/markdown/{{.ID}}">Markdown</a>
         <button class="btn-sm" onclick="location.reload()">New</button>
@@ -77,6 +78,26 @@
         <tbody>
         {{range .Rows}}
           <tr>{{range .}}<td class="cell">{{.}}</td>{{end}}</tr>
+        {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}
+
+  <!-- Traceability matrix (RTM) — requirement → tests, with gap status -->
+  {{if .RTMRows}}
+  <div class="card">
+    <div class="header" style="margin-bottom:12px;">
+      <h2 style="margin:0;">Traceability matrix</h2>
+      {{if gt .Gaps 0}}<span class="badge High">{{.Gaps}} requirement gap(s)</span>{{else}}<span class="badge">all requirements covered</span>{{end}}
+    </div>
+    <div class="table-scroll">
+      <table class="tc-table">
+        <thead><tr>{{range .RTMHeader}}<th>{{.}}</th>{{end}}</tr></thead>
+        <tbody>
+        {{range .RTMRows}}
+          <tr>{{range $i, $cell := .}}<td class="cell">{{if and (eq $i 7) (ne $cell "Covered")}}<span class="badge High">{{$cell}}</span>{{else}}{{$cell}}{{end}}</td>{{end}}</tr>
         {{end}}
         </tbody>
       </table>
