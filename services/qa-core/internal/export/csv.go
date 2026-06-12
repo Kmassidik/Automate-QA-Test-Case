@@ -11,8 +11,8 @@ import (
 // this CSV are derived from the SAME rows (QARepositoryRows) so they match 1:1.
 var qaCSVHeader = []string{
 	"TC ID", "AC ID", "Module/Feature", "Title/Scenario", "Precondition",
-	"Test Steps", "Test Data", "Expected Result", "Priority (P0-P3)",
-	"Severity (Critical-Low)", "Type", "Actual Result", "Notes",
+	"Test Steps", "Test Data", "Expected Result", "Postcondition", "Priority (P0-P3)",
+	"Severity (Critical-Low)", "Type", "Tags", "Actual Result", "Notes",
 }
 
 // QARepositoryRows is the single source of truth for the QA table: it returns the
@@ -32,11 +32,13 @@ func QARepositoryRows(r contract.Result, opt Options) (header []string, rows [][
 			joinSteps(tc),                         // Test Steps
 			testDataForTC(tc, r.TestData),         // Test Data
 			tc.ExpectedResult,                     // Expected Result
-			priorityForTC(tc, opt.PriorityScheme), // Priority (P0-P3)
-			d.severityForTC(tc),                   // Severity (Critical-Low)
-			tc.Type,                               // Type
-			tc.ActualResult,                       // Actual Result (empty at generation)
-			"",                                    // Notes
+			strings.Join(tc.Postconditions, "\n"), // Postcondition
+			fallback(tc.Priority, priorityForTC(tc, opt.PriorityScheme)), // Priority (model-set, else derived)
+			fallback(tc.Severity, d.severityForTC(tc)),                   // Severity (model-set, else derived)
+			tc.Type,                     // Type
+			strings.Join(tc.Tags, ", "), // Tags (dimensions)
+			tc.ActualResult,             // Actual Result (empty at generation)
+			"",                          // Notes
 		})
 	}
 	return qaCSVHeader, rows

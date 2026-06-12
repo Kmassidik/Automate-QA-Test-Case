@@ -53,8 +53,11 @@ func Markdown(r contract.Result, opt Options) []byte {
 		b.WriteString("## Test Cases\n\n")
 		for _, tc := range r.TestCases {
 			fmt.Fprintf(&b, "### %s — %s\n\n", tc.ID, tc.Title)
-			fmt.Fprintf(&b, "- **Type:** %s · **Technique:** %s · **Format:** %s · **Risk:** %s\n",
-				tc.Type, tc.Technique, fallback(tc.Format, "step-by-step"), tc.Risk)
+			fmt.Fprintf(&b, "- **Type:** %s · **Priority:** %s · **Severity:** %s · **Risk:** %s\n",
+				tc.Type, fallback(tc.Priority, "—"), fallback(tc.Severity, "—"), tc.Risk)
+			if len(tc.Tags) > 0 {
+				fmt.Fprintf(&b, "- **Tags:** %s\n", strings.Join(tc.Tags, ", "))
+			}
 			if len(tc.Covers) > 0 {
 				fmt.Fprintf(&b, "- **Covers:** %s\n", strings.Join(tc.Covers, ", "))
 			}
@@ -68,7 +71,11 @@ func Markdown(r contract.Result, opt Options) []byte {
 			for i, s := range tc.Steps {
 				fmt.Fprintf(&b, "  %d. %s\n", i+1, s)
 			}
-			fmt.Fprintf(&b, "- **Expected:** %s\n\n", tc.ExpectedResult)
+			fmt.Fprintf(&b, "- **Expected:** %s\n", tc.ExpectedResult)
+			if len(tc.Postconditions) > 0 {
+				fmt.Fprintf(&b, "- **Postconditions:** %s\n", strings.Join(tc.Postconditions, "; "))
+			}
+			b.WriteString("\n")
 		}
 	}
 

@@ -81,9 +81,13 @@ type TestCase struct {
 	Preconditions  []string `json:"preconditions"`
 	Steps          []string `json:"steps"`
 	ExpectedResult string   `json:"expected_result"`
-	ActualResult   string   `json:"actual_result"` // empty at generation; filled during manual execution
-	Covers         []string `json:"covers"`        // AC traceability
-	Format         string   `json:"format"`        // step-by-step | gherkin | checklist
+	Postconditions []string `json:"postconditions"` // state after the case (cleanup/teardown/effects)
+	Priority       string   `json:"priority"`       // P0..P3 (model-set; derived if empty)
+	Severity       string   `json:"severity"`       // Critical..Low (model-set; derived if empty)
+	Tags           []string `json:"tags"`           // dimensions/labels, e.g. Security, Performance
+	ActualResult   string   `json:"actual_result"`  // empty at generation; filled during manual execution
+	Covers         []string `json:"covers"`         // AC traceability
+	Format         string   `json:"format"`         // step-by-step | gherkin | checklist
 	Risk           string   `json:"risk"`
 }
 

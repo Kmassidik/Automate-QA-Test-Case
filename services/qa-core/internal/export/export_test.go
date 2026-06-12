@@ -56,6 +56,42 @@ func TestCSVExcelCompat(t *testing.T) {
 	}
 }
 
+func TestQARepositoryUsesModelSetFields(t *testing.T) {
+	r := contract.Result{
+		AcceptanceCriteria: []contract.AcceptanceCriterion{{ID: "AC-1", Module: "Auth", Severity: "Low"}},
+		TestCases: []contract.TestCase{{
+			ID: "TC-1", Title: "rate-limit reset requests", Type: "Negative",
+			Covers: []string{"AC-1"}, Risk: "Low",
+			Priority: "P1", Severity: "High", // explicit -> must win over derived
+			Postconditions: []string{"account unlocked after window"},
+			Tags:           []string{"Security", "Performance"},
+		}},
+	}
+	header, rows := QARepositoryRows(r, Options{PriorityScheme: "P0-P3"})
+	idx := func(name string) int {
+		for i, h := range header {
+			if h == name {
+				return i
+			}
+		}
+		t.Fatalf("column %q not found", name)
+		return -1
+	}
+	row := rows[0]
+	if got := row[idx("Priority (P0-P3)")]; got != "P1" {
+		t.Errorf("priority = %q, want P1 (model-set, not derived P3)", got)
+	}
+	if got := row[idx("Severity (Critical-Low)")]; got != "High" {
+		t.Errorf("severity = %q, want High (model-set, not AC's Low)", got)
+	}
+	if got := row[idx("Tags")]; got != "Security, Performance" {
+		t.Errorf("tags = %q", got)
+	}
+	if got := row[idx("Postcondition")]; got != "account unlocked after window" {
+		t.Errorf("postcondition = %q", got)
+	}
+}
+
 func TestQARepositoryCSV(t *testing.T) {
 	data, err := QARepositoryCSV(fixture(), Options{PriorityScheme: "P0-P3"})
 	if err != nil {
@@ -65,12 +101,13 @@ func TestQARepositoryCSV(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("want header + 1 row, got %d rows", len(rows))
 	}
-	if len(rows[0]) != len(qaCSVHeader) || len(qaCSVHeader) != 13 {
-		t.Fatalf("header width = %d, want 13", len(rows[0]))
+	if len(rows[0]) != len(qaCSVHeader) || len(qaCSVHeader) != 15 {
+		t.Fatalf("header width = %d, want 15", len(rows[0]))
 	}
 	row := rows[1]
-	// 13-col template: TC ID, AC ID, Module/Feature, Title, Precondition, Steps,
-	// Test Data, Expected, Priority, Severity, Type, Actual Result, Notes.
+	// 15-col template: TC ID, AC ID, Module/Feature, Title, Precondition, Steps,
+	// Test Data, Expected, Postcondition, Priority, Severity, Type, Tags,
+	// Actual Result, Notes.
 	if row[0] != "TC-1" {
 		t.Errorf("TC ID = %q, want TC-1", row[0])
 	}
@@ -80,14 +117,14 @@ func TestQARepositoryCSV(t *testing.T) {
 	if row[2] != "Auth" { // Module/Feature from covered AC
 		t.Errorf("module = %q, want Auth", row[2])
 	}
-	if row[8] != "P0" { // Critical risk -> P0 under P0-P3
-		t.Errorf("priority = %q, want P0", row[8])
+	if row[9] != "P0" { // Critical risk -> P0 under P0-P3 (derived; no explicit priority)
+		t.Errorf("priority = %q, want P0", row[9])
 	}
-	if row[10] != "Negative" {
-		t.Errorf("type = %q, want Negative", row[10])
+	if row[11] != "Negative" {
+		t.Errorf("type = %q, want Negative", row[11])
 	}
-	if row[11] != "" { // Actual Result empty at generation
-		t.Errorf("actual result = %q, want empty", row[11])
+	if row[13] != "" { // Actual Result empty at generation
+		t.Errorf("actual result = %q, want empty", row[13])
 	}
 }
 

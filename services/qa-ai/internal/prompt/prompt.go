@@ -52,6 +52,8 @@ func schema(apiBlock string) string {
   "test_cases": [
     { "id": "TC-1", "title": "string", "type": "Positive|Negative|Edge case|Trivial", "technique": "string",
       "preconditions": ["string"], "steps": ["string"], "expected_result": "string",
+      "postconditions": ["string"], "priority": "P0|P1|P2|P3", "severity": "Critical|High|Medium|Low",
+      "tags": ["Functional|Security|Performance|Accessibility|Usability"],
       "covers": ["AC-1"], "format": "step-by-step|gherkin|checklist", "risk": "Critical|High|Medium|Low" }
   ],
   "edge_cases": [ { "id": "EC-1", "scenario": "string", "expected_result": "string" } ],

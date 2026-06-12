@@ -50,6 +50,8 @@ const testCasesSchema = `{
   "test_cases": [
     { "id": "TC-1", "title": "string", "type": "Positive|Negative|Edge case|Trivial", "technique": "string",
       "preconditions": ["string"], "steps": ["string"], "expected_result": "string",
+      "postconditions": ["string"], "priority": "P0|P1|P2|P3", "severity": "Critical|High|Medium|Low",
+      "tags": ["Functional|Security|Performance|Accessibility|Usability"],
       "covers": ["AC-1"], "format": "step-by-step|gherkin|checklist", "risk": "Critical|High|Medium|Low" }
   ]
 }`
@@ -65,8 +67,12 @@ func BuildTestCasesForAC(r contract.GenerateRequest, ac contract.AcceptanceCrite
 	writeRequirementAndOptions(&b, r)
 	b.WriteString("\nINSTRUCTIONS:\n")
 	fmt.Fprintf(&b, "- Every test case's \"covers\" MUST be [\"%s\"].\n", ac.ID)
-	b.WriteString("- Cover the requested test types — include Positive, Negative, and Edge case where they apply to this AC.\n")
+	b.WriteString("- Cover the requested case natures — include Positive, Negative, and Edge case where they apply to this AC.\n")
 	b.WriteString("- Be exhaustive for THIS criterion: boundaries, invalid input, error paths, state transitions.\n")
+	b.WriteString("- For each case set: postconditions (state/cleanup after), priority (P0-P3), severity (Critical-Low), and tags = the test dimension(s) it covers (Functional/Security/Performance/Accessibility/Usability).\n")
+	if len(r.TestDimensions) > 0 {
+		b.WriteString("- Include cases for the requested non-functional dimensions where they apply to this AC, tagged accordingly.\n")
+	}
 	fmt.Fprintf(&b, "- Number the test cases starting at TC-%d, incrementing by 1 (TC-%d, TC-%d, …).\n", startIndex, startIndex, startIndex+1)
 	b.WriteString("- Produce them in the chosen output format.\n")
 	b.WriteString("\nReturn ONLY this JSON shape (exact keys):\n")
