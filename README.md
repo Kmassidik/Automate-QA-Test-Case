@@ -12,6 +12,9 @@ See [`PRD.md`](./PRD.md) for the frozen product spec (v1.2).
 
 ## Architecture
 
+> 📐 **Diagrams:** see [`docs/architecture.md`](./docs/architecture.md) for the
+> component flow and the two-step (validate → generate) sequence (Mermaid + PNG/SVG).
+
 Two Go services on one box, plus Ollama running **natively** on the host:
 
 ```
