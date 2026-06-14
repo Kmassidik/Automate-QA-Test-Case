@@ -161,7 +161,15 @@ code { background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; font-s
 /* Editable acceptance-criteria rows on the Step-1 review page. */
 .ac-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .ac-row input[type=text] { flex: 1; }
-.ac-remove { flex: none; color: var(--muted); }
+/* Compact square icon button — not the chunky padded .btn. */
+.ac-remove {
+  flex: none; width: 36px; height: 36px; padding: 0; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.ac-remove:hover { color: var(--red); border-color: #fecaca; background: #fef2f2; }
 
 /* Compact number field (label + small input + inline note), e.g. cases per type. */
 .num-field { display: flex; align-items: center; gap: 10px; }

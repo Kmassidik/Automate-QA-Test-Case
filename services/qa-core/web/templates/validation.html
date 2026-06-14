@@ -64,7 +64,7 @@
           <input type="hidden" name="ac_module" value="{{.Module}}">
           <input type="hidden" name="ac_severity" value="{{.Severity}}">
           <input type="hidden" name="ac_risk" value="{{.RiskLevel}}">
-          <button type="button" class="btn-outline btn-sm ac-remove" title="Remove" onclick="this.closest('.ac-row').remove()">✕</button>
+          <button type="button" class="ac-remove" title="Remove" onclick="this.closest('.ac-row').remove()">✕</button>
         </div>
         {{end}}
       </div>
@@ -108,7 +108,7 @@
       '<input type="hidden" name="ac_module" value="">' +
       '<input type="hidden" name="ac_severity" value="">' +
       '<input type="hidden" name="ac_risk" value="">' +
-      '<button type="button" class="btn-outline btn-sm ac-remove" title="Remove">✕</button>';
+      '<button type="button" class="ac-remove" title="Remove">✕</button>';
     row.querySelector(".ac-remove").addEventListener("click", function () { row.remove(); });
     document.getElementById("ac-rows").appendChild(row);
     row.querySelector("input").focus();
