@@ -90,7 +90,8 @@ func TestRenderAllTemplates(t *testing.T) {
 		"Req":    contract.GenerateRequest{Requirement: "reset password", ApplicationType: "Web", TestTypes: []string{"Positive", "Negative"}, IncludePreconditions: true},
 	})
 	// Must show analysis + carry the form forward to /generate as hidden inputs.
-	for _, want := range []string{"Requirement breakdown", "hx-post=\"/generate\"", "name=\"test_types\" value=\"Positive\"", "Generate test cases"} {
+	for _, want := range []string{"Requirement breakdown", "hx-post=\"/generate\"", "name=\"test_types\" value=\"Positive\"",
+		"Generate from these", "name=\"ac_desc\"", "name=\"clarifications\"", "Reset link expires in 30m"} {
 		if !strings.Contains(vout, want) {
 			t.Errorf("validation.html missing %q", want)
 		}

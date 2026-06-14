@@ -413,5 +413,46 @@ func parseForm(r *http.Request) contract.GenerateRequest {
 		IncludeTestData:      true,
 		GenerateEdgeCases:    true,
 		PlatformMatrix:       r.FormValue("platform_matrix"),
+		Clarifications:       strings.TrimSpace(r.FormValue("clarifications")),
+		AcceptanceCriteria:   parseCuratedACs(r),
 	}
+}
+
+// parseCuratedACs reads the editable acceptance-criteria rows from the Step-1
+// review page (parallel form arrays). Blank descriptions are dropped and IDs are
+// renumbered AC-1..N so user additions/removals stay consistent. Returns nil when
+// the form has no AC rows (i.e. a direct generate, not via the review page).
+func parseCuratedACs(r *http.Request) []contract.AcceptanceCriterion {
+	descs := r.Form["ac_desc"]
+	if len(descs) == 0 {
+		return nil
+	}
+	modules := r.Form["ac_module"]
+	severities := r.Form["ac_severity"]
+	risks := r.Form["ac_risk"]
+
+	at := func(s []string, i int) string {
+		if i < len(s) {
+			return s[i]
+		}
+		return ""
+	}
+
+	var out []contract.AcceptanceCriterion
+	n := 0
+	for i, d := range descs {
+		d = strings.TrimSpace(d)
+		if d == "" {
+			continue // dropped (a removed/empty row)
+		}
+		n++
+		out = append(out, contract.AcceptanceCriterion{
+			ID:          fmt.Sprintf("AC-%d", n), // renumber so add/remove stays consistent
+			Description: d,
+			Module:      at(modules, i),
+			Severity:    at(severities, i),
+			RiskLevel:   at(risks, i),
+		})
+	}
+	return out
 }

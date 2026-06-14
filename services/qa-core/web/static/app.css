@@ -157,3 +157,8 @@ code { background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; font-s
 .step-list li[data-state="done"]    { color: var(--fg); }
 .step-list li[data-state="running"] { color: var(--fg); font-weight: 600; }
 .step-list li[data-state="failed"]  { color: var(--red); }
+
+/* Editable acceptance-criteria rows on the Step-1 review page. */
+.ac-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ac-row input[type=text] { flex: 1; }
+.ac-remove { flex: none; color: var(--muted); }

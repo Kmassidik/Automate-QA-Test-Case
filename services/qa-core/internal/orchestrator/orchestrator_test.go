@@ -77,6 +77,29 @@ func TestRunAssemblesBatches(t *testing.T) {
 	}
 }
 
+func TestRunUsesCuratedACs(t *testing.T) {
+	ai := &fakeAI{}
+	m := queue.New(queue.Config{Runner: GenRunner(ai, nil)})
+	// QA curated a single AC on the review page (the analysis stage proposes 2).
+	req := contract.GenerateRequest{
+		Requirement:        "reset",
+		Clarifications:     "must work on mobile Safari",
+		AcceptanceCriteria: []contract.AcceptanceCriterion{{ID: "AC-1", Description: "curated only"}},
+	}
+	res, err := Run(context.Background(), req, mkProgress(m), ai, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Result reflects the curated AC, not the 2 the analysis stage proposed.
+	if len(res.AcceptanceCriteria) != 1 || res.AcceptanceCriteria[0].Description != "curated only" {
+		t.Fatalf("want the 1 curated AC, got %+v", res.AcceptanceCriteria)
+	}
+	// Test cases were generated for the curated AC only (1 AC × 2 cases from fake).
+	if len(res.TestCases) != 2 {
+		t.Errorf("want 2 test cases (1 curated AC), got %d", len(res.TestCases))
+	}
+}
+
 // mkProgress builds a Progress bound to a throwaway job (Run only needs the
 // reporting side-effects, which are harmless here).
 func mkProgress(m *queue.Manager) *queue.Progress {

@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -113,16 +114,19 @@ func snapshotter(dir string, log *slog.Logger) orchestrator.Snapshotter {
 	}
 }
 
+// validateRunner is Step 1 of the two-step flow. It runs the analysis stage so
+// the review page can show the proposed ACCEPTANCE CRITERIA (which the QA then
+// edits) — not just the breakdown/health.
 func validateRunner(ai *aiclient.Client) queue.Runner {
 	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
-		p.Plan("Analyzing requirement")
+		p.Plan("Analyzing requirement & proposing acceptance criteria")
 		p.Start(0)
-		res, err := ai.Validate(ctx, req)
+		res, err := ai.Stage(ctx, contract.StageRequest{Stage: contract.StageAnalysis, Req: req})
 		if err != nil {
 			p.Fail(0, err.Error())
 			return res, err
 		}
-		p.Done(0, "")
+		p.Done(0, fmt.Sprintf("%d acceptance criteria", len(res.AcceptanceCriteria)))
 		return res, nil
 	}
 }

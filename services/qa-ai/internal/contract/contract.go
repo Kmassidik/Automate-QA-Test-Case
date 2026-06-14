@@ -19,6 +19,13 @@ type GenerateRequest struct {
 	IncludeTestData      bool     `json:"include_test_data"`
 	GenerateEdgeCases    bool     `json:"generate_edge_cases"`
 	PlatformMatrix       string   `json:"platform_matrix"` // optional free text
+
+	// Two-step review (Step 1 → edit → Step 2). When the user curates the
+	// acceptance criteria on the review page, they're carried here and the
+	// orchestrator generates test cases from EXACTLY these instead of re-deriving.
+	// Clarifications are extra context the QA added before generating.
+	AcceptanceCriteria []AcceptanceCriterion `json:"acceptance_criteria,omitempty"`
+	Clarifications     string                `json:"clarifications,omitempty"`
 }
 
 // IsAPI reports whether API testing artifacts (§5.2.G) should be produced.

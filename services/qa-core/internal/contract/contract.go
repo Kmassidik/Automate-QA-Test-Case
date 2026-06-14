@@ -19,6 +19,11 @@ type GenerateRequest struct {
 	IncludeTestData      bool     `json:"include_test_data"`
 	GenerateEdgeCases    bool     `json:"generate_edge_cases"`
 	PlatformMatrix       string   `json:"platform_matrix"` // optional free text
+
+	// Two-step review (Step 1 → edit → Step 2). User-curated acceptance criteria
+	// + extra clarifications carried from the review page.
+	AcceptanceCriteria []AcceptanceCriterion `json:"acceptance_criteria,omitempty"`
+	Clarifications     string                `json:"clarifications,omitempty"`
 }
 
 // IsAPI reports whether API testing artifacts (§5.2.G) should be produced.

@@ -52,25 +52,66 @@
   </div>
   {{end}}
 
-  <!-- Proceed to generation (step 2) -->
+  <!-- Review & edit ACs, then generate (step 2) -->
   <div class="card">
-    <h2 style="margin-top:0;">Generate test cases</h2>
-    <p class="muted">Reviewed the analysis? Generate the full test suite from this requirement — it joins the same one-at-a-time queue.</p>
+    <h2 style="margin-top:0;">Acceptance criteria — review &amp; edit</h2>
+    <p class="muted">These drive every test case. Don't agree, or something's missing? Edit, add, or remove — generation uses exactly this list.</p>
     <form hx-post="/generate" hx-target="#panel" hx-swap="innerHTML">
+      <div id="ac-rows">
+        {{range $r.AcceptanceCriteria}}
+        <div class="ac-row">
+          <input type="text" name="ac_desc" value="{{.Description}}" placeholder="Acceptance criterion…">
+          <input type="hidden" name="ac_module" value="{{.Module}}">
+          <input type="hidden" name="ac_severity" value="{{.Severity}}">
+          <input type="hidden" name="ac_risk" value="{{.RiskLevel}}">
+          <button type="button" class="btn-outline btn-sm ac-remove" title="Remove" onclick="this.closest('.ac-row').remove()">✕</button>
+        </div>
+        {{end}}
+      </div>
+      <button type="button" class="btn-outline btn-sm" id="ac-add" style="margin-top:6px;">+ add criterion</button>
+
+      <div class="field" style="margin-top:18px;">
+        <label for="clarifications">Clarifications / corrections <span class="hint">(optional — extra context for generation)</span></label>
+        <textarea id="clarifications" name="clarifications" rows="3" placeholder="e.g. the reset link must also work on mobile Safari; expiry is hard at 30m with no grace period…"></textarea>
+      </div>
+
       <input type="hidden" name="requirement" value="{{$req.Requirement}}">
       <input type="hidden" name="application_type" value="{{$req.ApplicationType}}">
       <input type="hidden" name="detail_level" value="{{$req.DetailLevel}}">
       {{range $req.TestTypes}}<input type="hidden" name="test_types" value="{{.}}">{{end}}
-      {{range $req.TestDesignTechniques}}<input type="hidden" name="test_design_techniques" value="{{.}}">{{end}}
+      {{range $req.TestDimensions}}<input type="hidden" name="test_dimensions" value="{{.}}">{{end}}
       <input type="hidden" name="output_format" value="{{$req.OutputFormat}}">
       <input type="hidden" name="priority_scheme" value="{{$req.PriorityScheme}}">
       {{if $req.IncludePreconditions}}<input type="hidden" name="include_preconditions" value="1">{{end}}
       {{if $req.IncludeTestData}}<input type="hidden" name="include_test_data" value="1">{{end}}
       {{if $req.GenerateEdgeCases}}<input type="hidden" name="generate_edge_cases" value="1">{{end}}
       <input type="hidden" name="platform_matrix" value="{{$req.PlatformMatrix}}">
-      <button type="submit">Generate test cases →</button>
-      <span class="hint" style="margin-left:10px;">Each generation takes ~30–90s · you'll see your place in line.</span>
+
+      <div style="margin-top:16px;">
+        <button type="submit">Generate from these →</button>
+        <span class="hint" style="margin-left:10px;">A full run on a big requirement can take many minutes · you'll see live progress.</span>
+      </div>
     </form>
   </div>
 </div>
+
+<script>
+(function () {
+  var add = document.getElementById("ac-add");
+  if (!add) return;
+  add.addEventListener("click", function () {
+    var row = document.createElement("div");
+    row.className = "ac-row";
+    row.innerHTML =
+      '<input type="text" name="ac_desc" placeholder="New acceptance criterion…">' +
+      '<input type="hidden" name="ac_module" value="">' +
+      '<input type="hidden" name="ac_severity" value="">' +
+      '<input type="hidden" name="ac_risk" value="">' +
+      '<button type="button" class="btn-outline btn-sm ac-remove" title="Remove">✕</button>';
+    row.querySelector(".ac-remove").addEventListener("click", function () { row.remove(); });
+    document.getElementById("ac-rows").appendChild(row);
+    row.querySelector("input").focus();
+  });
+})();
+</script>
 {{end}}

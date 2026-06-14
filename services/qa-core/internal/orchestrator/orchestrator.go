@@ -8,6 +8,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"qa-core/internal/contract"
 	"qa-core/internal/queue"
@@ -43,6 +44,13 @@ func Run(ctx context.Context, req contract.GenerateRequest, p *queue.Progress, a
 			snap(p.JobID(), res) // optional human-readable markdown trace
 		}
 	}
+
+	// Step-2 review inputs: fold the QA's clarifications into the requirement so
+	// every stage sees them.
+	if strings.TrimSpace(req.Clarifications) != "" {
+		req.Requirement = strings.TrimSpace(req.Requirement) +
+			"\n\nADDITIONAL CLARIFICATIONS (from QA review):\n" + strings.TrimSpace(req.Clarifications)
+	}
 	p.Plan("Analyzing requirement & deriving acceptance criteria")
 
 	// Stage 1 — analysis + acceptance criteria.
@@ -53,7 +61,14 @@ func Run(ctx context.Context, req contract.GenerateRequest, p *queue.Progress, a
 		return contract.Result{}, fmt.Errorf("analysis stage: %w", err)
 	}
 	acs := analysis.AcceptanceCriteria
-	p.Done(0, fmt.Sprintf("%d acceptance criteria", len(acs)))
+	// If the QA curated the ACs on the review page, generate from EXACTLY those
+	// (the analysis above still gives us accurate health/ambiguities/breakdown).
+	if len(req.AcceptanceCriteria) > 0 {
+		acs = req.AcceptanceCriteria
+		p.Done(0, fmt.Sprintf("%d acceptance criteria (QA-curated)", len(acs)))
+	} else {
+		p.Done(0, fmt.Sprintf("%d acceptance criteria", len(acs)))
+	}
 
 	result := contract.Result{
 		RequirementAnalysis: analysis.RequirementAnalysis,
