@@ -44,6 +44,7 @@ func main() {
 	// Wiring: broadcaster <- queue OnChange; queue runner -> qa-ai client.
 	bc := sse.NewBroadcaster()
 	ai := aiclient.New(cfg.aiURL, cfg.stageTimeout) // per qa-ai call (one stage)
+	tlog := timingLogger(cfg.timingLog, log)        // per-job, per-stage timing breakdown
 	etaTracker := eta.New(cfg.etaWindow)
 	q := queue.New(queue.Config{
 		Buffer: cfg.queueBuffer,
@@ -52,7 +53,7 @@ func main() {
 		// single stage timeout or long jobs get canceled mid-flight.
 		GenTimeout: cfg.jobTimeout,
 		ETA:        etaTracker,
-		Runner:     orchestrator.GenRunner(ai, snapshotter(cfg.snapshotDir, log)), // batched, per-AC, step-by-step
+		Runner:     orchestrator.GenRunner(ai, snapshotter(cfg.snapshotDir, log), tlog), // batched, per-AC, step-by-step + timing
 		Validator:  validateRunner(ai),
 		OnChange:   bc.Publish,
 	})
@@ -117,6 +118,25 @@ func snapshotter(dir string, log *slog.Logger) orchestrator.Snapshotter {
 // validateRunner is Step 1 of the two-step flow. It runs the analysis stage so
 // the review page can show the proposed ACCEPTANCE CRITERIA (which the QA then
 // edits) — not just the breakdown/health.
+// timingLogger returns a logger that appends a human-readable per-job, per-stage
+// timing breakdown to dir/timing.log (tail -f to watch live; grep "job done" for
+// totals). Returns nil (timing off) when path is empty or unopenable.
+func timingLogger(path string, log *slog.Logger) *slog.Logger {
+	if path == "" {
+		return nil
+	}
+	if d := filepath.Dir(path); d != "" {
+		_ = os.MkdirAll(d, 0o755)
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		log.Warn("timing log unavailable; disabling", "path", path, "err", err)
+		return nil
+	}
+	log.Info("timing log enabled", "path", path)
+	return slog.New(slog.NewTextHandler(f, &slog.HandlerOptions{Level: slog.LevelInfo}))
+}
+
 func validateRunner(ai *aiclient.Client) queue.Runner {
 	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
 		p.Plan("Analyzing requirement & proposing acceptance criteria")
@@ -141,6 +161,7 @@ type config struct {
 	jobTimeout   time.Duration // the whole batched generation (all stages)
 	snapshotDir  string
 	optionsFile  string
+	timingLog    string
 }
 
 func loadConfig() (config, error) {
@@ -159,6 +180,7 @@ func loadConfig() (config, error) {
 		jobTimeout:   envDuration("JOB_TIMEOUT", 1800*time.Second),
 		snapshotDir:  os.Getenv("SNAPSHOT_DIR"),                  // empty => in-memory only
 		optionsFile:  env("OPTIONS_FILE", "./data/options.json"), // editable form vocabularies
+		timingLog:    env("TIMING_LOG", "./data/timing.log"),     // per-stage timing for tuning ("" disables)
 	}
 	if c.accessCode == "" {
 		return c, errors.New("ACCESS_CODE is required (set it in .env or the deploy environment)")

@@ -41,9 +41,9 @@ func (f *fakeAI) Stage(_ context.Context, sr contract.StageRequest) (contract.Re
 
 func TestRunAssemblesBatches(t *testing.T) {
 	ai := &fakeAI{}
-	m := queue.New(queue.Config{Runner: GenRunner(ai, nil)})
+	m := queue.New(queue.Config{Runner: GenRunner(ai, nil, nil)})
 	// drive Run directly via a job's Progress by using the manager's runner path:
-	res, err := Run(context.Background(), contract.GenerateRequest{Requirement: "reset"}, mkProgress(m), ai, nil)
+	res, err := Run(context.Background(), contract.GenerateRequest{Requirement: "reset"}, mkProgress(m), ai, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,14 +79,14 @@ func TestRunAssemblesBatches(t *testing.T) {
 
 func TestRunUsesCuratedACs(t *testing.T) {
 	ai := &fakeAI{}
-	m := queue.New(queue.Config{Runner: GenRunner(ai, nil)})
+	m := queue.New(queue.Config{Runner: GenRunner(ai, nil, nil)})
 	// QA curated a single AC on the review page (the analysis stage proposes 2).
 	req := contract.GenerateRequest{
 		Requirement:        "reset",
 		Clarifications:     "must work on mobile Safari",
 		AcceptanceCriteria: []contract.AcceptanceCriterion{{ID: "AC-1", Description: "curated only"}},
 	}
-	res, err := Run(context.Background(), req, mkProgress(m), ai, nil)
+	res, err := Run(context.Background(), req, mkProgress(m), ai, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
