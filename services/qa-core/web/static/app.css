@@ -159,17 +159,41 @@ code { background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; font-s
 .step-list li[data-state="failed"]  { color: var(--red); }
 
 /* Editable acceptance-criteria rows on the Step-1 review page. */
-.ac-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.ac-row input[type=text] { flex: 1; }
-/* Compact square icon button — not the chunky padded .btn. */
-.ac-remove {
-  flex: none; width: 36px; height: 36px; padding: 0; line-height: 1;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: var(--card); color: var(--muted); font-size: 13px; cursor: pointer;
-  transition: color .12s, border-color .12s, background .12s;
+/* Acceptance-criteria editor: card rows (drag · truncated content · trash),
+   edited via a modal. Inline flex keeps the trash button beside the text. */
+.criteria-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.criterion {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--card); transition: border-color .15s, box-shadow .15s;
 }
-.ac-remove:hover { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+.criterion:hover { border-color: var(--ring); box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.criterion.dragging { opacity: .45; }
+.criterion .drag { flex: none; color: var(--muted); cursor: grab; user-select: none; letter-spacing: -3px; font-size: 16px; }
+.criterion .content {
+  flex: 1; min-width: 0; line-height: 1.4; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.criterion .content:hover { color: var(--blue); }
+.criterion .delete {
+  flex: none; border: none; background: transparent; color: var(--muted);
+  cursor: pointer; font-size: 15px; padding: 4px 6px; border-radius: 6px; line-height: 1;
+}
+.criterion .delete:hover { color: var(--red); background: #fef2f2; }
+
+/* Modal (edit/add a criterion). */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 50;
+  display: none; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; width: 100%; max-width: 540px; box-shadow: 0 12px 48px rgba(0,0,0,.22);
+}
+.modal h3 { margin: 0 0 12px; font-size: 15px; }
+.modal textarea { width: 100%; min-height: 96px; }
+.modal .btn-row { margin-top: 14px; justify-content: flex-end; }
 
 /* Compact number field (label + small input + inline note), e.g. cases per type. */
 .num-field { display: flex; align-items: center; gap: 10px; }

@@ -57,14 +57,16 @@
     <h2 style="margin-top:0;">Acceptance criteria — review &amp; edit</h2>
     <p class="muted">These drive every test case. Don't agree, or something's missing? Edit, add, or remove — generation uses exactly this list.</p>
     <form hx-post="/generate" hx-target="#panel" hx-swap="innerHTML">
-      <div id="ac-rows">
+      <div id="ac-rows" class="criteria-list">
         {{range $r.AcceptanceCriteria}}
-        <div class="ac-row">
-          <input type="text" name="ac_desc" value="{{.Description}}" placeholder="Acceptance criterion…">
+        <div class="criterion" draggable="true">
+          <span class="drag" title="Drag to reorder">⋮⋮</span>
+          <div class="content" title="{{.Description}}">{{.Description}}</div>
+          <input type="hidden" name="ac_desc" value="{{.Description}}">
           <input type="hidden" name="ac_module" value="{{.Module}}">
           <input type="hidden" name="ac_severity" value="{{.Severity}}">
           <input type="hidden" name="ac_risk" value="{{.RiskLevel}}">
-          <button type="button" class="ac-remove" title="Remove" onclick="this.closest('.ac-row').remove()">✕</button>
+          <button type="button" class="delete" title="Remove">🗑</button>
         </div>
         {{end}}
       </div>
@@ -94,24 +96,84 @@
       </div>
     </form>
   </div>
+
+  <!-- Edit/add criterion modal -->
+  <div class="modal-overlay" id="ac-modal">
+    <div class="modal">
+      <h3 id="ac-modal-title">Edit acceptance criterion</h3>
+      <textarea id="ac-modal-text" placeholder="Acceptance criterion…"></textarea>
+      <div class="btn-row">
+        <button type="button" class="btn-outline btn-sm" id="ac-modal-cancel">Cancel</button>
+        <button type="button" class="btn-sm" id="ac-modal-save">Save</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
 (function () {
-  var add = document.getElementById("ac-add");
-  if (!add) return;
-  add.addEventListener("click", function () {
-    var row = document.createElement("div");
-    row.className = "ac-row";
-    row.innerHTML =
-      '<input type="text" name="ac_desc" placeholder="New acceptance criterion…">' +
+  var rows = document.getElementById("ac-rows");
+  if (!rows) return;
+  var modal = document.getElementById("ac-modal");
+  var text = document.getElementById("ac-modal-text");
+  var title = document.getElementById("ac-modal-title");
+  var editing = null; // card being edited; null = adding a new one
+
+  function open(card) {
+    editing = card;
+    title.textContent = card ? "Edit acceptance criterion" : "Add acceptance criterion";
+    text.value = card ? card.querySelector('input[name="ac_desc"]').value : "";
+    modal.classList.add("open"); text.focus();
+  }
+  function close() { modal.classList.remove("open"); editing = null; }
+
+  function set(card, desc) {
+    card.querySelector('input[name="ac_desc"]').value = desc;
+    var c = card.querySelector(".content"); c.textContent = desc; c.title = desc;
+  }
+  function make(desc) {
+    var d = document.createElement("div");
+    d.className = "criterion"; d.draggable = true;
+    d.innerHTML =
+      '<span class="drag" title="Drag to reorder">⋮⋮</span>' +
+      '<div class="content"></div>' +
+      '<input type="hidden" name="ac_desc">' +
       '<input type="hidden" name="ac_module" value="">' +
       '<input type="hidden" name="ac_severity" value="">' +
       '<input type="hidden" name="ac_risk" value="">' +
-      '<button type="button" class="ac-remove" title="Remove">✕</button>';
-    row.querySelector(".ac-remove").addEventListener("click", function () { row.remove(); });
-    document.getElementById("ac-rows").appendChild(row);
-    row.querySelector("input").focus();
+      '<button type="button" class="delete" title="Remove">🗑</button>';
+    set(d, desc); return d;
+  }
+
+  document.getElementById("ac-add").addEventListener("click", function () { open(null); });
+  document.getElementById("ac-modal-cancel").addEventListener("click", close);
+  modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+  document.getElementById("ac-modal-save").addEventListener("click", function () {
+    var v = text.value.trim();
+    if (v) { if (editing) set(editing, v); else rows.appendChild(make(v)); }
+    close();
+  });
+  text.addEventListener("keydown", function (e) { if (e.key === "Escape") close(); });
+
+  // Click a card's text to edit; trash to delete.
+  rows.addEventListener("click", function (e) {
+    if (e.target.closest(".delete")) { e.target.closest(".criterion").remove(); return; }
+    var content = e.target.closest(".content");
+    if (content) open(content.closest(".criterion"));
+  });
+
+  // Drag to reorder (DOM order = submit order = generation order).
+  var drag = null;
+  rows.addEventListener("dragstart", function (e) { drag = e.target.closest(".criterion"); if (drag) drag.classList.add("dragging"); });
+  rows.addEventListener("dragend", function () { if (drag) drag.classList.remove("dragging"); drag = null; });
+  rows.addEventListener("dragover", function (e) {
+    e.preventDefault(); if (!drag) return;
+    var after = null, best = -Infinity;
+    rows.querySelectorAll(".criterion:not(.dragging)").forEach(function (el) {
+      var box = el.getBoundingClientRect(), off = e.clientY - box.top - box.height / 2;
+      if (off < 0 && off > best) { best = off; after = el; }
+    });
+    if (after) rows.insertBefore(drag, after); else rows.appendChild(drag);
   });
 })();
 </script>
