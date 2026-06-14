@@ -82,8 +82,8 @@ func Markdown(r contract.Result, opt Options) []byte {
 	// Coverage.
 	b.WriteString("## Coverage\n\n")
 	cs := r.CoverageSummary
-	fmt.Fprintf(&b, "**Summary:** positive %d · negative %d · edge case %d · trivial %d\n\n",
-		cs.Positive, cs.Negative, cs.EdgeCase, cs.Trivial)
+	fmt.Fprintf(&b, "**Summary:** positive %d · negative %d · edge case %d\n\n",
+		cs.Positive, cs.Negative, cs.EdgeCase)
 	if len(r.CoverageMatrix) > 0 {
 		b.WriteString("| Requirement Point | Covered By | Type |\n|---|---|---|\n")
 		for _, row := range r.CoverageMatrix {

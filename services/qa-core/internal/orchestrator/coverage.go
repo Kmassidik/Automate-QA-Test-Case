@@ -18,8 +18,6 @@ func computeCoverage(acs []contract.AcceptanceCriterion, cases []contract.TestCa
 			summary.Negative++
 		case "Edge case":
 			summary.EdgeCase++
-		case "Trivial":
-			summary.Trivial++
 		default:
 			summary.Positive++
 		}
@@ -82,9 +80,6 @@ func computeTraceability(acs []contract.AcceptanceCriterion, cases []contract.Te
 	if sum.Negative == 0 && sum.EdgeCase == 0 {
 		sub(-10, "Only-positive suite")
 	}
-	if sum.Trivial > sum.Positive+sum.Negative+sum.EdgeCase {
-		sub(-5, "Over-reliance on trivial cases")
-	}
 
 	// Unresolved ambiguity impact.
 	for _, a := range ambs {
@@ -141,8 +136,6 @@ func normType(t string) string {
 		return "Negative"
 	case "edge case", "edge", "edgecase", "edge-case":
 		return "Edge case"
-	case "trivial":
-		return "Trivial"
 	default:
 		return "Positive"
 	}

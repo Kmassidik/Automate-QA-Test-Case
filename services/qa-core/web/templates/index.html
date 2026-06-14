@@ -90,7 +90,7 @@
         <div class="field">
           <label>Case natures</label>
           <div class="checks">
-            {{range .Options.CaseNatures}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}"{{if ne . "Trivial"}} checked{{end}}>{{.}}</label>{{end}}
+            {{range .Options.CaseNatures}}<label class="chk"><input type="checkbox" name="test_types" value="{{.}}" checked>{{.}}</label>{{end}}
           </div>
         </div>
 

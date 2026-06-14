@@ -25,7 +25,7 @@ type Options struct {
 func defaults() Options {
 	return Options{
 		ApplicationTypes: []string{"Web", "Mobile", "Desktop"},
-		CaseNatures:      []string{"Positive", "Negative", "Edge case", "Trivial"},
+		CaseNatures:      []string{"Positive", "Negative", "Edge case"},
 		TestDimensions:   []string{"Functional", "Security", "Performance", "Accessibility", "Usability"},
 	}
 }

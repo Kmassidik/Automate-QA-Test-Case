@@ -16,7 +16,7 @@ func TestSanitizeDedupAndDefaults(t *testing.T) {
 	if len(o.ApplicationTypes) != 2 || o.ApplicationTypes[0] != "Web" || o.ApplicationTypes[1] != "API" {
 		t.Errorf("app types not cleaned: %v", o.ApplicationTypes)
 	}
-	if len(o.CaseNatures) != 4 { // restored to defaults
+	if len(o.CaseNatures) != 3 { // restored to defaults
 		t.Errorf("empty case natures should fall back to defaults, got %v", o.CaseNatures)
 	}
 	if len(o.TestDimensions) != 1 || o.TestDimensions[0] != "Security" {

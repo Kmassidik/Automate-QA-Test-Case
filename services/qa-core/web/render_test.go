@@ -114,7 +114,7 @@ func sampleResult() *contract.Result {
 		EdgeCases:         []contract.EdgeCase{{ID: "EC-1", Scenario: "Expired token", ExpectedResult: "Rejected"}},
 		TestData:          contract.TestData{ValidEmails: []string{"a@b.com"}, InvalidEmails: []string{"x@"}, BoundaryValues: []string{"255 chars"}},
 		CoverageMatrix:    []contract.CoverageRow{{RequirementPoint: "Token expiry", CoveredBy: []string{"TC-1"}, CoverageType: "Negative"}},
-		CoverageSummary:   contract.CoverageSummary{Positive: 3, Negative: 2, EdgeCase: 1, Trivial: 1},
+		CoverageSummary:   contract.CoverageSummary{Positive: 3, Negative: 2, EdgeCase: 1},
 		Ambiguities:       []contract.Ambiguity{{Location: "policy", Issue: "undefined", Suggestion: "define", Severity: "Medium"}},
 		RequirementHealth: contract.Score{Score: 82, Rating: "Good", Deductions: []contract.Deduction{{Reason: "validation unspecified", Points: -15}}},
 		TraceabilityScore: contract.Score{Score: 88, Rating: "Minor Gaps", Deductions: []contract.Deduction{{Reason: "boundary gap", Points: -10}}},

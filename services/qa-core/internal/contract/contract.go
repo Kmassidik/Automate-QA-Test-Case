@@ -10,7 +10,7 @@ type GenerateRequest struct {
 	Model                string   `json:"model,omitempty"`        // active Ollama model; empty => qa-ai's configured default
 	ApplicationType      string   `json:"application_type"`       // Web · Mobile · API · Desktop · E-commerce · CMS · SaaS · Embedded
 	DetailLevel          string   `json:"detail_level"`           // Condensed · Standard · Detailed
-	TestTypes            []string `json:"test_types"`             // case natures: Positive · Negative · Edge case · Trivial
+	TestTypes            []string `json:"test_types"`             // case natures: Positive · Negative · Edge case
 	TestDimensions       []string `json:"test_dimensions"`        // Functional · Security · Performance · Accessibility · Usability
 	TestDesignTechniques []string `json:"test_design_techniques"` // EP · BVA · Decision Table · ...
 	OutputFormat         string   `json:"output_format"`          // step-by-step · gherkin · checklist
@@ -98,7 +98,7 @@ type AcceptanceCriterion struct {
 type TestCase struct {
 	ID             string   `json:"id"`
 	Title          string   `json:"title"`
-	Type           string   `json:"type"` // Positive | Negative | Edge case | Trivial
+	Type           string   `json:"type"` // Positive | Negative | Edge case
 	Technique      string   `json:"technique"`
 	Preconditions  []string `json:"preconditions"`
 	Steps          []string `json:"steps"`
@@ -134,14 +134,13 @@ type APITest struct {
 type CoverageRow struct {
 	RequirementPoint string   `json:"requirement_point"`
 	CoveredBy        []string `json:"covered_by"`
-	CoverageType     string   `json:"coverage_type"` // Positive · Negative · Edge case · Trivial
+	CoverageType     string   `json:"coverage_type"` // Positive · Negative · Edge case
 }
 
 type CoverageSummary struct {
 	Positive int `json:"positive"`
 	Negative int `json:"negative"`
 	EdgeCase int `json:"edge_case"`
-	Trivial  int `json:"trivial"`
 }
 
 type Ambiguity struct {
