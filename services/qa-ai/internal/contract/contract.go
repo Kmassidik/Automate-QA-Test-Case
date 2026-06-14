@@ -40,8 +40,8 @@ func (r GenerateRequest) CasesPerTypeOrDefault() int {
 	if n <= 0 {
 		return 3
 	}
-	if n > 8 {
-		return 8
+	if n > 20 {
+		return 20
 	}
 	return n
 }

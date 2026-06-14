@@ -80,14 +80,10 @@
         </div>
 
         <div class="field">
-          <label>Cases per type <span class="hint">— per nature, per criterion · fewer = faster</span></label>
-          <div class="seg">
-            <label><input type="radio" name="cases_per_type" value="1">1</label>
-            <label><input type="radio" name="cases_per_type" value="2">2</label>
-            <label><input type="radio" name="cases_per_type" value="3" checked>3</label>
-            <label><input type="radio" name="cases_per_type" value="4">4</label>
-            <label><input type="radio" name="cases_per_type" value="5">5</label>
-            <label><input type="radio" name="cases_per_type" value="6">6</label>
+          <label for="cases_per_type">Cases per type <span class="hint">— per nature, per criterion · fewer = faster</span></label>
+          <div class="num-field">
+            <input type="number" id="cases_per_type" name="cases_per_type" min="1" max="20" value="3">
+            <span class="hint" id="cpt-note"></span>
           </div>
         </div>
 
@@ -127,6 +123,28 @@
     const at = document.getElementById("application_type");
     if (e.application_type) at.value = e.application_type;
   }
+
+  // Cases-per-type: live hint + warn (don't block) on high values before submit.
+  (function () {
+    var cpt = document.getElementById("cases_per_type");
+    var note = document.getElementById("cpt-note");
+    var WARN = 5; // above this, generation gets noticeably long
+    function n() { return parseInt(cpt.value || "3", 10) || 3; }
+    function refresh() {
+      note.textContent = n() > WARN ? "⚠ many cases per criterion — this will take a while" : "";
+      note.style.color = "var(--amber)";
+    }
+    cpt.addEventListener("input", refresh); refresh();
+
+    // htmx fires htmx:confirm before the request — gate it ourselves when high.
+    document.getElementById("genform").addEventListener("htmx:confirm", function (evt) {
+      if (n() <= WARN) return; // proceed normally
+      evt.preventDefault();
+      if (confirm("Cases per type = " + n() + ".\nGenerating this many per nature, per criterion can take several minutes on a big requirement.\n\nContinue anyway?")) {
+        evt.detail.issueRequest(true); // user accepted the wait
+      }
+    });
+  })();
 
   // Global queue status via SSE (PRD §5.4).
   (function () {

@@ -30,14 +30,15 @@ type GenerateRequest struct {
 	CasesPerType int `json:"cases_per_type,omitempty"`
 }
 
-// CasesPerTypeOrDefault returns the per-nature case cap (default 3, max 8).
+// CasesPerTypeOrDefault returns the per-nature case cap (default 3, ceiling 20 —
+// the UI warns above ~5 but lets the user proceed).
 func (r GenerateRequest) CasesPerTypeOrDefault() int {
 	n := r.CasesPerType
 	if n <= 0 {
 		return 3
 	}
-	if n > 8 {
-		return 8
+	if n > 20 {
+		return 20
 	}
 	return n
 }
