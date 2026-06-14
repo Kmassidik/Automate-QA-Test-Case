@@ -115,6 +115,7 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		"ApplicationTypes": strings.Join(o.ApplicationTypes, "\n"),
 		"CaseNatures":      strings.Join(o.CaseNatures, "\n"),
 		"TestDimensions":   strings.Join(o.TestDimensions, "\n"),
+		"Saved":            r.URL.Query().Get("saved") == "1",
 	})
 }
 
@@ -133,7 +134,7 @@ func (s *Server) handleSaveSettings(w http.ResponseWriter, r *http.Request) {
 	if err := s.opts.Set(o); err != nil {
 		s.log.Warn("settings persist failed", "err", err)
 	}
-	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings?saved=1", http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {

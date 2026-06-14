@@ -14,6 +14,8 @@
   </div>
   <p class="subtitle">Manage the dropdown / checkbox choices everyone sees on the form. One option per line. Saved globally.</p>
 
+  {{if .Saved}}<div class="saved-banner" id="saved-banner">✓ Options saved.</div>{{end}}
+
   <form method="post" action="/settings">
     <div class="card">
       <div class="field">
@@ -28,10 +30,20 @@
         <label for="test_dimensions">Test dimensions <span class="hint">(checkboxes — functional + non-functional concerns)</span></label>
         <textarea id="test_dimensions" name="test_dimensions" rows="6">{{.TestDimensions}}</textarea>
       </div>
-      <button type="submit">Save options</button>
+      <button type="submit" id="save-btn">Save options</button>
       <span class="hint" style="margin-left:10px;">Empty a list and it reverts to defaults. Output format stays fixed (code-coupled).</span>
     </div>
   </form>
 </div>
+<script>
+  // Immediate feedback on click (before the round-trip).
+  document.querySelector("form").addEventListener("submit", function () {
+    var b = document.getElementById("save-btn");
+    if (b) { b.textContent = "Saving…"; b.disabled = true; }
+  });
+  // Fade the "saved" banner and drop ?saved=1 so a refresh won't re-show it.
+  var sb = document.getElementById("saved-banner");
+  if (sb) { setTimeout(function () { sb.style.opacity = "0"; }, 2500); history.replaceState(null, "", "/settings"); }
+</script>
 </body>
 </html>{{end}}
