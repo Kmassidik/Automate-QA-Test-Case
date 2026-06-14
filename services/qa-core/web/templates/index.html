@@ -79,9 +79,16 @@
           </div>
         </div>
 
-        <div class="field" style="max-width:340px;">
-          <label for="cases_per_type">Cases per type <span class="hint">(max per case nature, per criterion — fewer = faster)</span></label>
-          <input type="number" id="cases_per_type" name="cases_per_type" min="1" max="8" value="3">
+        <div class="field">
+          <label>Cases per type <span class="hint">— per nature, per criterion · fewer = faster</span></label>
+          <div class="seg">
+            <label><input type="radio" name="cases_per_type" value="1">1</label>
+            <label><input type="radio" name="cases_per_type" value="2">2</label>
+            <label><input type="radio" name="cases_per_type" value="3" checked>3</label>
+            <label><input type="radio" name="cases_per_type" value="4">4</label>
+            <label><input type="radio" name="cases_per_type" value="5">5</label>
+            <label><input type="radio" name="cases_per_type" value="6">6</label>
+          </div>
         </div>
 
         <div class="field">

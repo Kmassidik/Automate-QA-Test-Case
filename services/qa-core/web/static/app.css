@@ -162,3 +162,14 @@ code { background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; font-s
 .ac-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .ac-row input[type=text] { flex: 1; }
 .ac-remove { flex: none; color: var(--muted); }
+
+/* Segmented number picker (e.g. cases per type) — matches the chip aesthetic. */
+.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.seg label {
+  cursor: pointer; user-select: none; min-width: 40px; text-align: center;
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 0;
+  font-size: 13px; font-weight: 500; background: var(--card); transition: all .12s;
+}
+.seg label:hover { border-color: var(--ring); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
