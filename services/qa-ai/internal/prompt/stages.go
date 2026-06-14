@@ -65,10 +65,11 @@ func BuildTestCasesForAC(r contract.GenerateRequest, ac contract.AcceptanceCrite
 	fmt.Fprintf(&b, "ACCEPTANCE CRITERION:\n- id: %s\n- description: %s\n- module: %s\n- severity: %s\n\n",
 		ac.ID, ac.Description, ac.Module, ac.Severity)
 	writeRequirementAndOptions(&b, r)
+	n := r.CasesPerTypeOrDefault()
 	b.WriteString("\nINSTRUCTIONS:\n")
 	fmt.Fprintf(&b, "- Every test case's \"covers\" MUST be [\"%s\"].\n", ac.ID)
-	b.WriteString("- Cover the requested case natures — include Positive, Negative, and Edge case where they apply to this AC.\n")
-	b.WriteString("- Be exhaustive for THIS criterion: boundaries, invalid input, error paths, state transitions.\n")
+	fmt.Fprintf(&b, "- Write UP TO %d cases for EACH requested case nature that applies to this AC (Positive, Negative, Edge case). Quality over quantity: pick the most valuable, DISTINCT cases — do not pad or repeat.\n", n)
+	b.WriteString("- Within that budget, prioritise: boundaries, invalid input, error paths, and state transitions.\n")
 	b.WriteString("- For each case set: postconditions (state/cleanup after), priority (P0-P3), severity (Critical-Low), and tags = the test dimension(s) it covers (Functional/Security/Performance/Accessibility/Usability).\n")
 	if len(r.TestDimensions) > 0 {
 		b.WriteString("- Include cases for the requested non-functional dimensions where they apply to this AC, tagged accordingly.\n")

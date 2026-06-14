@@ -24,6 +24,22 @@ type GenerateRequest struct {
 	// + extra clarifications carried from the review page.
 	AcceptanceCriteria []AcceptanceCriterion `json:"acceptance_criteria,omitempty"`
 	Clarifications     string                `json:"clarifications,omitempty"`
+
+	// CasesPerType caps how many test cases the model writes for EACH case
+	// nature, per acceptance criterion (user-controlled volume/speed dial).
+	CasesPerType int `json:"cases_per_type,omitempty"`
+}
+
+// CasesPerTypeOrDefault returns the per-nature case cap (default 3, max 8).
+func (r GenerateRequest) CasesPerTypeOrDefault() int {
+	n := r.CasesPerType
+	if n <= 0 {
+		return 3
+	}
+	if n > 8 {
+		return 8
+	}
+	return n
 }
 
 // IsAPI reports whether API testing artifacts (§5.2.G) should be produced.

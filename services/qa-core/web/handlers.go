@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -415,7 +416,15 @@ func parseForm(r *http.Request) contract.GenerateRequest {
 		PlatformMatrix:       r.FormValue("platform_matrix"),
 		Clarifications:       strings.TrimSpace(r.FormValue("clarifications")),
 		AcceptanceCriteria:   parseCuratedACs(r),
+		CasesPerType:         atoiDefault(r.FormValue("cases_per_type"), 3),
 	}
+}
+
+func atoiDefault(s string, def int) int {
+	if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+		return n
+	}
+	return def
 }
 
 // parseCuratedACs reads the editable acceptance-criteria rows from the Step-1

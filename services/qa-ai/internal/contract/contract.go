@@ -26,6 +26,24 @@ type GenerateRequest struct {
 	// Clarifications are extra context the QA added before generating.
 	AcceptanceCriteria []AcceptanceCriterion `json:"acceptance_criteria,omitempty"`
 	Clarifications     string                `json:"clarifications,omitempty"`
+
+	// CasesPerType caps how many test cases the model writes for EACH case
+	// nature, per acceptance criterion (user-controlled volume/speed dial).
+	// 0 => use the default.
+	CasesPerType int `json:"cases_per_type,omitempty"`
+}
+
+// CasesPerTypeOrDefault returns the per-nature case cap, defaulting to 3 and
+// clamping to a sane ceiling so a huge value can't blow up generation time.
+func (r GenerateRequest) CasesPerTypeOrDefault() int {
+	n := r.CasesPerType
+	if n <= 0 {
+		return 3
+	}
+	if n > 8 {
+		return 8
+	}
+	return n
 }
 
 // IsAPI reports whether API testing artifacts (§5.2.G) should be produced.

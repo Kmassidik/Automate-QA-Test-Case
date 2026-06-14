@@ -37,6 +37,23 @@ func TestBuildTestCasesForAC(t *testing.T) {
 	}
 }
 
+func TestBuildTestCasesForACCap(t *testing.T) {
+	ac := contract.AcceptanceCriterion{ID: "AC-1", Description: "x"}
+	// Explicit cap honored.
+	_, user := BuildTestCasesForAC(contract.GenerateRequest{Requirement: "r", CasesPerType: 2}, ac, 1)
+	if !strings.Contains(user, "UP TO 2 cases") {
+		t.Errorf("cap of 2 not in prompt: %q", user)
+	}
+	if strings.Contains(user, "exhaustive") {
+		t.Error("old unbounded 'exhaustive' instruction should be gone")
+	}
+	// Default when unset.
+	_, def := BuildTestCasesForAC(contract.GenerateRequest{Requirement: "r"}, ac, 1)
+	if !strings.Contains(def, "UP TO 3 cases") {
+		t.Errorf("default cap of 3 not in prompt: %q", def)
+	}
+}
+
 func TestBuildAux(t *testing.T) {
 	_, user := BuildAux(contract.GenerateRequest{Requirement: "x", ApplicationType: "Web"})
 	if !strings.Contains(user, `"edge_cases"`) || !strings.Contains(user, `"test_data"`) {

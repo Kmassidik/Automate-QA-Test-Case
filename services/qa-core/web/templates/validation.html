@@ -86,6 +86,7 @@
       {{if $req.IncludeTestData}}<input type="hidden" name="include_test_data" value="1">{{end}}
       {{if $req.GenerateEdgeCases}}<input type="hidden" name="generate_edge_cases" value="1">{{end}}
       <input type="hidden" name="platform_matrix" value="{{$req.PlatformMatrix}}">
+      <input type="hidden" name="cases_per_type" value="{{$req.CasesPerType}}">
 
       <div style="margin-top:16px;">
         <button type="submit">Generate from these →</button>
