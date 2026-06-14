@@ -275,7 +275,10 @@ var examples = []Example{
 
 func cacheStatic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=86400")
+		// no-cache: the browser revalidates each load, so CSS/JS changes show up
+		// immediately after a deploy (no more "still buggy" from a stale stylesheet).
+		// Assets are small and embedded, so the cost is negligible on a LAN.
+		w.Header().Set("Cache-Control", "no-cache")
 		next.ServeHTTP(w, r)
 	})
 }
