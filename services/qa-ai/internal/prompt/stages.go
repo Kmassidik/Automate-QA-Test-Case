@@ -56,30 +56,68 @@ const testCasesSchema = `{
   ]
 }`
 
-// BuildTestCasesForAC asks for a thorough set of test cases that cover a single
-// acceptance criterion. Numbering starts at startIndex so the orchestrator can
+// systemTestCases is a lean system prompt for the test-case/aux stages. It drops
+// the scoring policy (irrelevant here — scores are computed elsewhere), so the
+// small model has fewer tokens to juggle and fewer ways to break JSON.
+const systemTestCases = `You are a senior QA engineer who writes precise, executable test cases.
+
+OUTPUT RULES (critical):
+- Respond with a SINGLE JSON object and NOTHING else — no prose, no markdown, no code fences, no trailing commas; escape any quotes inside strings.
+- Match the exact schema and key names. Do not add or rename keys.
+- English only.`
+
+// testCaseExample is a one-shot gold example (for a DIFFERENT AC) showing the
+// exact shape and — crucially — one case of EACH nature including an Edge case,
+// so the model reliably emits Edge-case-typed cases instead of only Positive/
+// Negative. Biggest single lever for output quality on a 7B.
+const testCaseExample = `EXAMPLE (for a different AC "AC-9: a valid login redirects to the dashboard"). Match this shape and quality — note one case PER nature, with "type" set exactly:
+{
+  "test_cases": [
+    { "id": "TC-1", "title": "Valid credentials log the user in", "type": "Positive", "technique": "Equivalence Partitioning",
+      "preconditions": ["User has a registered, active account"], "steps": ["Open the login page", "Enter a valid email and correct password", "Submit"],
+      "expected_result": "User is authenticated and redirected to the dashboard", "postconditions": ["A session is started"],
+      "priority": "P1", "severity": "High", "tags": ["Functional"], "covers": ["AC-9"], "format": "step-by-step", "risk": "High" },
+    { "id": "TC-2", "title": "Incorrect password is rejected", "type": "Negative", "technique": "Error Guessing",
+      "preconditions": ["User has a registered account"], "steps": ["Open the login page", "Enter a valid email and a wrong password", "Submit"],
+      "expected_result": "Login fails with an 'invalid credentials' message and no session is created", "postconditions": [],
+      "priority": "P1", "severity": "High", "tags": ["Functional", "Security"], "covers": ["AC-9"], "format": "step-by-step", "risk": "High" },
+    { "id": "TC-3", "title": "Email at the maximum allowed length (boundary)", "type": "Edge case", "technique": "Boundary Value Analysis",
+      "preconditions": ["None"], "steps": ["Enter an email of exactly the maximum allowed length", "Enter any password", "Submit"],
+      "expected_result": "The boundary input is handled gracefully — accepted up to the limit, rejected beyond it, with no crash", "postconditions": [],
+      "priority": "P2", "severity": "Medium", "tags": ["Functional"], "covers": ["AC-9"], "format": "step-by-step", "risk": "Medium" }
+  ]
+}`
+
+// BuildTestCasesForAC asks for test cases covering a single acceptance criterion,
+// one batch per AC. Numbering starts at startIndex so the orchestrator can
 // concatenate batches without colliding TC IDs.
 func BuildTestCasesForAC(r contract.GenerateRequest, ac contract.AcceptanceCriterion, startIndex int) (system, user string) {
+	n := r.CasesPerTypeOrDefault()
+	natures := joinOr(r.TestTypes, "Positive, Negative, Edge case")
+	natCount := len(r.TestTypes)
+	if natCount == 0 {
+		natCount = 3
+	}
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "Write thorough test cases that cover this ONE acceptance criterion of a larger requirement.\n\n")
+	fmt.Fprintf(&b, "Write executable test cases that cover this ONE acceptance criterion of a larger requirement.\n\n")
 	fmt.Fprintf(&b, "ACCEPTANCE CRITERION:\n- id: %s\n- description: %s\n- module: %s\n- severity: %s\n\n",
 		ac.ID, ac.Description, ac.Module, ac.Severity)
 	writeRequirementAndOptions(&b, r)
-	n := r.CasesPerTypeOrDefault()
-	natures := joinOr(r.TestTypes, "Positive, Negative, Edge case")
 	b.WriteString("\nINSTRUCTIONS:\n")
 	fmt.Fprintf(&b, "- Every test case's \"covers\" MUST be [\"%s\"].\n", ac.ID)
-	fmt.Fprintf(&b, "- Write UP TO %d cases for EACH of these case natures, only where it genuinely applies to this AC: %s. Set each case's \"type\" to its nature. Quality over quantity: pick the most valuable, DISTINCT cases — do not pad or repeat.\n", n, natures)
-	b.WriteString("- Within that budget, prioritise: boundaries, invalid input, error paths, and state transitions.\n")
-	b.WriteString("- For each case set: postconditions (state/cleanup after), priority (P0-P3), severity (Critical-Low), and tags = the test dimension(s) it covers (Functional/Security/Performance/Accessibility/Usability).\n")
+	fmt.Fprintf(&b, "- Produce test cases of EACH of these natures, and set each case's \"type\" to its nature EXACTLY: %s.\n", natures)
+	fmt.Fprintf(&b, "- Aim for up to %d cases per nature (up to ~%d for this AC). Positive and Negative almost always apply; an \"Edge case\" applies wherever there is a boundary, limit, empty/maximum value, exact threshold, or unusual-but-valid input — include at least one Edge case unless genuinely impossible for this AC.\n", n, n*natCount)
+	b.WriteString("- Each case must test a DISTINCT condition — no padding or repeats.\n")
+	b.WriteString("- Set postconditions (state/cleanup after), priority (P0-P3), severity (Critical-Low), and tags = the dimension(s) covered (Functional/Security/Performance/Accessibility/Usability).\n")
 	if len(r.TestDimensions) > 0 {
-		b.WriteString("- Include cases for the requested non-functional dimensions where they apply to this AC, tagged accordingly.\n")
+		b.WriteString("- Add cases for the requested non-functional dimensions where they apply, tagged accordingly.\n")
 	}
-	fmt.Fprintf(&b, "- Number the test cases starting at TC-%d, incrementing by 1 (TC-%d, TC-%d, …).\n", startIndex, startIndex, startIndex+1)
-	b.WriteString("- Produce them in the chosen output format.\n")
-	b.WriteString("\nReturn ONLY this JSON shape (exact keys):\n")
+	fmt.Fprintf(&b, "- Number the test cases starting at TC-%d.\n\n", startIndex)
+	b.WriteString(testCaseExample)
+	b.WriteString("\n\nNow return ONLY a JSON object of this exact shape (same keys as the example):\n")
 	b.WriteString(testCasesSchema)
-	return System, b.String()
+	return systemTestCases, b.String()
 }
 
 // ----- Stage 3: edge cases + structured test data -----
@@ -100,5 +138,5 @@ func BuildAux(r contract.GenerateRequest) (system, user string) {
 	b.WriteString("- test_data: realistic valid/invalid emails and boundary values.\n")
 	b.WriteString("\nReturn ONLY this JSON shape (exact keys):\n")
 	b.WriteString(auxSchema)
-	return System, b.String()
+	return systemTestCases, b.String()
 }

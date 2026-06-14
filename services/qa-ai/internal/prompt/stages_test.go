@@ -39,17 +39,20 @@ func TestBuildTestCasesForAC(t *testing.T) {
 
 func TestBuildTestCasesForACCap(t *testing.T) {
 	ac := contract.AcceptanceCriterion{ID: "AC-1", Description: "x"}
-	// Explicit cap honored.
-	_, user := BuildTestCasesForAC(contract.GenerateRequest{Requirement: "r", CasesPerType: 2}, ac, 1)
-	if !strings.Contains(user, "UP TO 2 cases") {
+	// Explicit cap honored + a few-shot example with an Edge case is present.
+	sys, user := BuildTestCasesForAC(contract.GenerateRequest{Requirement: "r", CasesPerType: 2}, ac, 1)
+	if !strings.Contains(user, "up to 2 cases per nature") {
 		t.Errorf("cap of 2 not in prompt: %q", user)
 	}
-	if strings.Contains(user, "exhaustive") {
-		t.Error("old unbounded 'exhaustive' instruction should be gone")
+	if !strings.Contains(user, `"type": "Edge case"`) {
+		t.Error("few-shot example should include an Edge-case-typed case")
+	}
+	if strings.Contains(sys, "SCORING POLICY") {
+		t.Error("test-case stage should use the lean system prompt (no scoring policy)")
 	}
 	// Default when unset.
 	_, def := BuildTestCasesForAC(contract.GenerateRequest{Requirement: "r"}, ac, 1)
-	if !strings.Contains(def, "UP TO 3 cases") {
+	if !strings.Contains(def, "up to 3 cases per nature") {
 		t.Errorf("default cap of 3 not in prompt: %q", def)
 	}
 }
