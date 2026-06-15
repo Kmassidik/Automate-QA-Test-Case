@@ -18,18 +18,23 @@ See [`PRD.md`](./PRD.md) for the frozen product spec (v1.2).
 Two Go services on one box, plus Ollama running **natively** on the host:
 
 ```
-Browser (HTML + Tailwind/shadcn-style + htmx)
-  │  POST /generate   (form fields + access code)
-  │  GET  /events      (SSE: live queue status)
+Browser (HTML + hand-authored shadcn-style CSS + htmx)
+  │  POST /validate   → Step 1: requirement analysis + editable acceptance criteria
+  │  POST /generate   → Step 2: full test-case suite (form fields + access code)
+  │  GET  /events       (SSE: live queue status)
   ▼
 qa-core  ── access gate · in-memory FIFO queue + 1 worker · ETA tracker · SSE · exports
   │  HTTP (one request at a time)
   ▼
 qa-ai    ── stateless: build prompt · call Ollama · validate JSON (≤3 retries) · clamp scores
-  │  HTTP (host.docker.internal:11434)
+  │  HTTP (localhost:11434)
   ▼
-Ollama (NATIVE, Metal) ──► Qwen2.5 7B
+Ollama (native) ──► Qwen2.5 (7B default; any Ollama model via OLLAMA_MODEL)
 ```
+
+The flow is **two-step**: `/validate` returns the requirement analysis and editable
+acceptance criteria for review; `/generate` then produces the full suite from the
+curated criteria. Both job kinds serialize through the *same* single worker.
 
 - **`qa-core`** owns concurrency: a single worker goroutine drains a buffered channel,
   so exactly one job runs at a time and `qa-ai` never sees concurrent requests.
@@ -166,6 +171,31 @@ The full request flow (access gate → submit → live queue status → result �
 all three exports) is verified end-to-end against a stub generator; swap in a
 real Ollama + Qwen2.5 7B and it's production-ready per the PRD.
 
+## Choosing a model
+
+`qa-ai` works with **any Ollama chat model** — set `OLLAMA_MODEL` (default
+`qwen2.5:7b`). The model auto-pulls on first boot.
+
+- **`qwen2.5:7b`** — the default; best output quality. Needs ~6–8 GB RAM/VRAM.
+- **`qwen2.5:3b`** — much faster and lighter (~2 GB), good for low-RAM machines at
+  some cost to depth. Set `OLLAMA_MODEL=qwen2.5:3b`.
+
+## Security model
+
+The threat model is simple: **only the access-code-gated UI is meant to touch the
+network.** Keep the rest private.
+
+- **`qa-core`** (the UI, `:8080`) is the only service you expose on a LAN/host. Every
+  route is behind a shared `ACCESS_CODE` (the app refuses to start without one).
+- **`qa-ai`** (`:8081`) and **Ollama** (`:11434`) should bind to **loopback only**
+  (`127.0.0.1`). They are unauthenticated by design — never expose them directly.
+- Nothing leaves the machine: all inference is local, so no requirement text is sent
+  to any third-party API.
+
+If you need remote access, put `qa-core` behind your own VPN / reverse proxy / SSH
+tunnel — don't move `qa-ai` or Ollama onto a public interface.
+
 ## License
 
-Internal tool. All inference is local; no requirement text leaves the machine.
+No license yet — all rights reserved. If you'd like to reuse this, please open an
+issue. (A permissive license may be added later.)

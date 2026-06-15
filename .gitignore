@@ -22,5 +22,18 @@ tmp/
 result
 result-*
 
-# Editable form options store
+# Editable form options store (runtime state)
 data/
+
+# Runtime logs
+log/
+*.log
+
+# Node test harness (Playwright — local dev/QA only, not part of the app)
+node_modules/
+package.json
+package-lock.json
+
+# Deployment / internal docs (site-specific or internal notes — kept local, not published)
+docs/RUNBOOK.md
+review.md
