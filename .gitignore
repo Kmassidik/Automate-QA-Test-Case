@@ -37,3 +37,9 @@ package-lock.json
 # Deployment / internal docs (site-specific or internal notes — kept local, not published)
 docs/RUNBOOK.md
 review.md
+
+# Internal MOM template / sample meeting material (real names + company info — keep local)
+source template need to be same as layout/
+*.docx
+*.docx.pdf
+*.docx.zip

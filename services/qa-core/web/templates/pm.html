@@ -1,0 +1,85 @@
+{{define "pm.html"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting Minutes · PM</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>Meeting Minutes</h1>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+      <span class="hint">offline · <span id="backend-label" data-state="{{.Backend.State}}">{{.Backend.Label}}</span> · one-at-a-time queue</span>
+      {{if .Models.OK}}
+      <form hx-post="/model" hx-trigger="change" hx-swap="none" style="margin:0;">
+        <label class="hint" style="margin:0;">Model:
+          <select name="model" style="font-size:12px;padding:2px 4px;">
+            {{range .Models.Available}}<option value="{{.Name}}"{{if eq .Name $.Models.Active}} selected{{end}}>{{.Name}}{{if .Size}} · {{.Size}}{{end}}</option>{{end}}
+          </select>
+        </label>
+      </form>
+      {{else}}
+      <span class="hint">model: {{if .Models.Active}}{{.Models.Active}}{{else}}backend offline{{end}}</span>
+      {{end}}
+      <div>
+        <a href="/settings" class="hint" style="text-decoration:underline;">Settings</a>
+        <span class="hint">·</span>
+        <a href="/logout" class="hint" style="text-decoration:underline;">Sign out</a>
+      </div>
+    </div>
+  </div>
+  <p class="subtitle">Upload one meeting recording — get clean, editable Minutes of Meeting, then export to PDF.</p>
+
+  <nav class="tabs">
+    <a href="/" class="tab {{if eq .Tab "qa"}}active{{end}}">QA — Test Cases</a>
+    <a href="/pm" class="tab {{if eq .Tab "pm"}}active{{end}}">PM — Meeting Minutes</a>
+  </nav>
+
+  <div id="status" class="status-bar" data-busy="{{.Status.Busy}}">
+    <span id="status-dot" class="dot {{if .Status.Busy}}busy{{end}}"></span>
+    <span id="status-label">{{.Status.Label}}</span>
+  </div>
+
+  <div id="resources" class="res-bar"{{if not .Resources.OK}} hidden{{end}}>
+    <span class="res-item">CPU <b id="res-cpu">{{.Resources.CPUPercent}}</b>%</span>
+    <span class="res-item">RAM <b id="res-mem">{{.Resources.MemPercent}}</b>% <span class="muted" id="res-mem-detail">{{if .Resources.MemTotal}}{{.Resources.MemUsed}} / {{.Resources.MemTotal}}{{end}}</span></span>
+    <span class="res-item" id="res-model">{{if .Resources.LoadedModel}}🧠 {{.Resources.LoadedModel}}{{else}}no model loaded{{end}}</span>
+  </div>
+
+  <div class="card">
+    <h2>Upload audio</h2>
+    <form hx-post="/pm/process" hx-target="#pm-output" hx-swap="innerHTML"
+          hx-encoding="multipart/form-data" hx-indicator="#pm-processing"
+          hx-disabled-elt="#pm-go">
+      <div class="field">
+        <label for="audio">Meeting recording <span class="hint">(mp3 · m4a · wav · ogg — one file)</span></label>
+        <input type="file" id="audio" name="audio" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac,.flac" required>
+      </div>
+      <div class="btn-row">
+        <button type="submit" id="pm-go">Create minutes →</button>
+        <span class="hint">Transcription + summary runs on your own machine. A long recording can take a few minutes.</span>
+      </div>
+    </form>
+  </div>
+
+  <!-- htmx swaps the editable minutes (or an error) in here. -->
+  <div id="pm-output"></div>
+</div>
+
+<!-- Full-screen processing overlay (shown only while the request is in flight). -->
+<div id="pm-processing" class="overlay htmx-indicator">
+  <div class="overlay-card">
+    <div class="spinner"></div>
+    <div>
+      <div style="font-weight:600;">Creating your minutes…</div>
+      <div class="hint">Transcribing the audio, then writing the MOM. This can take a few minutes for a long recording — keep this tab open.</div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/pm.js" defer></script>
+</body>
+</html>{{end}}

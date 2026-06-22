@@ -17,9 +17,11 @@ import (
 	"qa-ai/internal/bootstrap"
 	"qa-ai/internal/generate"
 	"qa-ai/internal/httpapi"
+	"qa-ai/internal/mom"
 	"qa-ai/internal/ollama"
 	"qa-ai/internal/platform"
 	"qa-ai/internal/readiness"
+	"qa-ai/internal/transcribe"
 )
 
 func main() {
@@ -30,7 +32,23 @@ func main() {
 	llm := ollama.New(cfg.ollamaURL, cfg.ollamaModel, cfg.ollamaNumCtx, cfg.genTimeout)
 	gen := generate.New(llm, cfg.maxRetries)
 	rd := readiness.New()
-	srv := httpapi.New(gen, llm, rd, plat, log)
+
+	// PM tab (Minutes of Meeting): a transcriber + a MOM generator. Real STT needs
+	// whisper.cpp (WHISPER_MODEL); without it, MOM_STUB=true wires a canned
+	// transcript so the pipeline still works for dev. Otherwise /mom returns 501.
+	momGen := mom.New(llm, cfg.maxRetries)
+	var tr transcribe.Transcriber
+	switch {
+	case cfg.whisperModel != "":
+		tr = transcribe.WhisperCLI{WhisperBin: cfg.whisperBin, ModelPath: cfg.whisperModel, FFmpegBin: cfg.ffmpegBin}
+		log.Info("MOM transcription enabled", "backend", tr.Name())
+	case cfg.momStub:
+		tr = transcribe.Stub{}
+		log.Info("MOM transcription using STUB (set WHISPER_MODEL for real speech-to-text)")
+	default:
+		log.Info("MOM transcription disabled (set WHISPER_MODEL or MOM_STUB=true to enable the PM tab)")
+	}
+	srv := httpapi.New(gen, llm, rd, plat, log, tr, momGen)
 
 	// Background warmup: wait for Ollama (OS-aware guidance), auto-pull the model
 	// if missing, flip readiness to Ready. The server is up immediately; until
@@ -46,9 +64,9 @@ func main() {
 		Addr:              cfg.addr,
 		Handler:           srv.Routes(),
 		ReadHeaderTimeout: 10 * time.Second,
-		// Write timeout must exceed a full generation (slow 7B on Metal): give
-		// the queue/worker headroom over genTimeout.
-		WriteTimeout: cfg.genTimeout + 30*time.Second,
+		// Write timeout must exceed the slowest response: a full generation OR a
+		// MOM run (transcription of a long recording + minutes). Take the larger.
+		WriteTimeout: maxDur(cfg.genTimeout, cfg.momTimeout) + 30*time.Second,
 	}
 
 	go func() {
@@ -78,6 +96,13 @@ type config struct {
 	genTimeout   time.Duration
 	autoPull     bool
 	warmupRetry  time.Duration
+
+	// PM tab / Minutes of Meeting transcription.
+	whisperBin   string        // whisper.cpp CLI (brew: whisper-cpp -> whisper-cli)
+	whisperModel string        // path to a ggml model; "" disables real STT
+	ffmpegBin    string        // ffmpeg for audio normalisation
+	momStub      bool          // wire a canned transcript when whisper isn't available
+	momTimeout   time.Duration // upper bound for transcribe + minutes (long recordings)
 }
 
 func loadConfig() config {
@@ -90,7 +115,20 @@ func loadConfig() config {
 		genTimeout:   envDuration("GEN_TIMEOUT", 180*time.Second),
 		autoPull:     envBool("OLLAMA_AUTO_PULL", true),
 		warmupRetry:  envDuration("WARMUP_RETRY", 5*time.Second),
+
+		whisperBin:   env("WHISPER_BIN", "whisper-cli"),
+		whisperModel: env("WHISPER_MODEL", ""),
+		ffmpegBin:    env("FFMPEG_BIN", "ffmpeg"),
+		momStub:      envBool("MOM_STUB", false),
+		momTimeout:   envDuration("MOM_TIMEOUT", 1200*time.Second),
 	}
+}
+
+func maxDur(a, b time.Duration) time.Duration {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func envBool(k string, def bool) bool {

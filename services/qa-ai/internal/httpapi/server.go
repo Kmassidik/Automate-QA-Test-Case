@@ -11,24 +11,28 @@ import (
 
 	"qa-ai/internal/contract"
 	"qa-ai/internal/generate"
+	"qa-ai/internal/mom"
 	"qa-ai/internal/ollama"
 	"qa-ai/internal/platform"
 	"qa-ai/internal/readiness"
+	"qa-ai/internal/transcribe"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
 type Server struct {
-	gen  *generate.Generator
-	llm  *ollama.Client
-	rd   *readiness.Readiness
-	plat platform.Info
-	log  *slog.Logger
+	gen    *generate.Generator
+	llm    *ollama.Client
+	rd     *readiness.Readiness
+	plat   platform.Info
+	log    *slog.Logger
+	tr     transcribe.Transcriber // PM tab: audio -> text (nil if unconfigured)
+	momGen *mom.Generator         // PM tab: transcript -> minutes
 }
 
-func New(gen *generate.Generator, llm *ollama.Client, rd *readiness.Readiness, plat platform.Info, log *slog.Logger) *Server {
-	return &Server{gen: gen, llm: llm, rd: rd, plat: plat, log: log}
+func New(gen *generate.Generator, llm *ollama.Client, rd *readiness.Readiness, plat platform.Info, log *slog.Logger, tr transcribe.Transcriber, momGen *mom.Generator) *Server {
+	return &Server{gen: gen, llm: llm, rd: rd, plat: plat, log: log, tr: tr, momGen: momGen}
 }
 
 func (s *Server) Routes() http.Handler {
@@ -39,6 +43,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /generate", s.handleGenerate)
 	mux.HandleFunc("POST /validate", s.handleValidate)
 	mux.HandleFunc("POST /stage", s.handleStage)
+	mux.HandleFunc("POST /mom", s.handleMOM)
 	return mux
 }
 

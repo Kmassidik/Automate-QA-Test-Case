@@ -200,3 +200,28 @@ code { background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; font-s
 .num-field { display: flex; align-items: center; gap: 10px; }
 .num-field input[type=number] { width: 84px; }
 .num-field .hint { font-size: 12px; }
+
+/* Tab nav (QA | PM). */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+.tabs .tab {
+  padding: 9px 16px; font-size: 13px; font-weight: 550; color: var(--muted);
+  text-decoration: none; border: 1px solid transparent; border-bottom: none;
+  border-radius: 8px 8px 0 0; margin-bottom: -1px;
+}
+.tabs .tab:hover { color: var(--fg); background: var(--muted-bg); }
+.tabs .tab.active { color: var(--fg); background: var(--card); border-color: var(--border); }
+
+/* PM: editable MOM rows (drag handle · title+desc fields · delete). */
+.mom-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.mom-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+.mom-row .mom-handle { color: var(--muted); letter-spacing: -3px; padding-top: 8px; user-select: none; }
+.mom-row .mom-fields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.mom-row textarea { min-height: 44px; }
+.mom-row .mom-del { flex: none; border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 4px 6px; border-radius: 6px; }
+.mom-row .mom-del:hover { color: var(--red); background: #fef2f2; }
+
+/* PM: full-screen processing overlay (toggled by htmx-indicator). */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 60; display: none; align-items: center; justify-content: center; padding: 20px; }
+.overlay.htmx-request, .htmx-request.overlay { display: flex; }
+.overlay-card { display: flex; align-items: center; gap: 16px; background: var(--card); border-radius: 12px; padding: 22px 26px; max-width: 460px; box-shadow: 0 12px 48px rgba(0,0,0,.25); }
+.overlay-card .spinner { width: 26px; height: 26px; border-width: 3px; flex: none; }

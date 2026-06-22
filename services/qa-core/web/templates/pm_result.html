@@ -1,0 +1,94 @@
+{{define "pm_result.html"}}
+<form method="post" action="/pm/export.pdf" id="mom-form">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;">
+      <h2 style="margin:0;">Review &amp; edit the minutes</h2>
+      <span class="hint">From <b>{{.Source}}</b>{{if .Language}} · detected language: {{.Language}}{{end}}. Everything below is editable — fix names, dates, wording before exporting.</span>
+    </div>
+
+    <input type="hidden" name="language" value="{{.Language}}">
+
+    <div class="grid" style="margin-top:14px;">
+      <div class="field">
+        <label for="date_time">Date / Time</label>
+        <input type="text" id="date_time" name="date_time" value="{{.DateTime}}" placeholder="e.g. 07-05-2026 / 14.00 WIB">
+      </div>
+      <div class="field">
+        <label for="location">Location</label>
+        <input type="text" id="location" name="location" value="{{.Location}}" placeholder="e.g. Jakarta / Offline Meeting">
+      </div>
+    </div>
+    <div class="field">
+      <label for="purpose">Purpose of meeting</label>
+      <input type="text" id="purpose" name="purpose" value="{{.Purpose}}">
+    </div>
+    <div class="field">
+      <label for="attendees">Attendees <span class="hint">(one per line)</span></label>
+      <textarea id="attendees" name="attendees" rows="3">{{.Attendees}}</textarea>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Meeting Discussions and Info</h2>
+    <div id="disc-list" class="mom-rows">
+      {{range .Discussions}}
+      <div class="mom-row">
+        <span class="mom-handle">⋮⋮</span>
+        <div class="mom-fields">
+          <input type="text" name="discussion_title" value="{{.Title}}" placeholder="Topic (bold heading) — optional">
+          <textarea name="discussion_desc" rows="2" placeholder="What was discussed">{{.Description}}</textarea>
+        </div>
+        <button type="button" class="mom-del" title="Remove" onclick="momDel(this)">🗑</button>
+      </div>
+      {{end}}
+    </div>
+    <button type="button" class="btn-outline btn-sm" onclick="momAdd('disc')">+ Add discussion</button>
+  </div>
+
+  <div class="card">
+    <h2>Follow Up</h2>
+    <div id="follow-list" class="mom-rows">
+      {{range .FollowUps}}
+      <div class="mom-row">
+        <span class="mom-handle">⋮⋮</span>
+        <div class="mom-fields">
+          <input type="text" name="followup_title" value="{{.Title}}" placeholder="Topic — optional">
+          <textarea name="followup_desc" rows="2" placeholder="Action item / follow-up">{{.Description}}</textarea>
+        </div>
+        <button type="button" class="mom-del" title="Remove" onclick="momDel(this)">🗑</button>
+      </div>
+      {{end}}
+    </div>
+    <button type="button" class="btn-outline btn-sm" onclick="momAdd('follow')">+ Add follow-up</button>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label for="prepared_by">Prepared by</label>
+      <input type="text" id="prepared_by" name="prepared_by" value="{{.PreparedBy}}">
+    </div>
+    <div class="btn-row">
+      <button type="submit">⬇ Download PDF</button>
+      <button type="button" class="btn-outline" onclick="momCopy()">Copy as text</button>
+      <span class="hint" id="mom-copied" style="display:none;color:var(--green);">✓ Copied</span>
+    </div>
+  </div>
+
+  <details class="card">
+    <summary style="cursor:pointer;font-weight:600;">Show raw transcript</summary>
+    <p class="hint" style="white-space:pre-wrap;margin-top:10px;">{{.Transcript}}</p>
+  </details>
+</form>
+
+<!-- Row template cloned by momAdd(). -->
+<template id="mom-row-tmpl">
+  <div class="mom-row">
+    <span class="mom-handle">⋮⋮</span>
+    <div class="mom-fields">
+      <input type="text" value="" placeholder="Topic — optional">
+      <textarea rows="2" placeholder="Description"></textarea>
+    </div>
+    <button type="button" class="mom-del" title="Remove" onclick="momDel(this)">🗑</button>
+  </div>
+</template>
+{{end}}

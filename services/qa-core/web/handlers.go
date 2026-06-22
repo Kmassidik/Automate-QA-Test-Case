@@ -89,6 +89,10 @@ func (s *Server) Routes() http.Handler {
 	gated.HandleFunc("GET /events", s.handleEvents)
 	gated.HandleFunc("GET /result/{id}", s.handleResult)
 	gated.HandleFunc("GET /export/{kind}/{id}", s.handleExport)
+	// PM tab — Minutes of Meeting (audio -> transcribe -> minutes -> PDF).
+	gated.HandleFunc("GET /pm", s.handlePM)
+	gated.HandleFunc("POST /pm/process", s.handlePMProcess)
+	gated.HandleFunc("POST /pm/export.pdf", s.handlePMExport)
 	mux.Handle("/", s.access.Middleware(gated))
 
 	return logRequests(s.log, mux)
@@ -99,6 +103,7 @@ func (s *Server) Routes() http.Handler {
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	snap := s.q.Snapshot()
 	s.tmpl.render(w, "index.html", map[string]any{
+		"Tab":       "qa",
 		"Status":    statusView(snap),
 		"Backend":   backendView(s.be.Current()),
 		"Examples":  examples,

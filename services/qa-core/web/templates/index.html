@@ -33,6 +33,11 @@
   </div>
   <p class="subtitle">Turn a requirement into structured QA artifacts — acceptance criteria, test cases, coverage, edge cases, scores.</p>
 
+  <nav class="tabs">
+    <a href="/" class="tab {{if eq .Tab "qa"}}active{{end}}">QA — Test Cases</a>
+    <a href="/pm" class="tab {{if eq .Tab "pm"}}active{{end}}">PM — Meeting Minutes</a>
+  </nav>
+
   <!-- Global live status (SSE) -->
   <div id="status" class="status-bar" data-busy="{{.Status.Busy}}">
     <span id="status-dot" class="dot {{if .Status.Busy}}busy{{end}}"></span>
