@@ -1,5 +1,5 @@
 {{define "pm_result.html"}}
-<form method="post" action="/pm/export.pdf" id="mom-form">
+<form method="post" action="/pm/print" target="_blank" id="mom-form">
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;">
       <h2 style="margin:0;">Review &amp; edit the minutes</h2>
@@ -10,8 +10,8 @@
 
     <div class="grid" style="margin-top:14px;">
       <div class="field">
-        <label for="date_time">Date / Time</label>
-        <input type="text" id="date_time" name="date_time" value="{{.DateTime}}" placeholder="e.g. 07-05-2026 / 14.00 WIB">
+        <label for="date_time">Date / Time <span class="hint">(WIB — formatted on export)</span></label>
+        <input type="datetime-local" id="date_time" name="date_time" value="{{.DateTimeLocal}}">
       </div>
       <div class="field">
         <label for="location">Location</label>
@@ -68,7 +68,7 @@
       <input type="text" id="prepared_by" name="prepared_by" value="{{.PreparedBy}}">
     </div>
     <div class="btn-row">
-      <button type="submit">⬇ Download PDF</button>
+      <button type="submit">🖨 Save as PDF</button>
       <button type="button" class="btn-outline" onclick="momCopy()">Copy as text</button>
       <span class="hint" id="mom-copied" style="display:none;color:var(--green);">✓ Copied</span>
     </div>

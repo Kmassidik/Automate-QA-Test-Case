@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"qa-core/internal/contract"
-	"qa-core/internal/export"
 	"qa-core/internal/queue"
 )
 
@@ -80,29 +80,49 @@ func saveAudioUpload(src io.Reader, name string) (string, error) {
 	return dst.Name(), nil
 }
 
-// handlePMExport builds a PDF from the EDITED form values (not the raw AI output)
-// so the user's corrections to names/dates/wording flow into the document.
-func (s *Server) handlePMExport(w http.ResponseWriter, r *http.Request) {
+// handlePMPrint renders the EDITED minutes as a print-ready HTML page styled to
+// match the frozen docx template exactly. The user saves it as PDF via the
+// browser's print dialog (WYSIWYG — the CSS is the layout, no server-side PDF
+// engine). Edits to names/dates/wording flow straight in.
+func (s *Server) handlePMPrint(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "could not read the form", http.StatusBadRequest)
 		return
 	}
 	m := momFromForm(r)
-	data, err := export.MOMPDF(m)
-	if err != nil {
-		http.Error(w, "PDF export failed: "+err.Error(), http.StatusInternalServerError)
-		return
+	s.tmpl.render(w, "mom_print.html", map[string]any{
+		"DateTime":    m.DateTime,
+		"DateOnly":    meetingDateOnly(m.DateTime),
+		"Location":    m.Location,
+		"Purpose":     m.Purpose,
+		"Attendees":   m.Attendees,
+		"Discussions": numberRows(m.Discussions),
+		"FollowUps":   numberRows(m.FollowUps),
+		"PreparedBy":  m.PreparedBy,
+	})
+}
+
+// printRow is a numbered minutes row for the print template (templates can't do
+// arithmetic, so the index is precomputed here).
+type printRow struct {
+	N           int
+	Title       string
+	Description string
+}
+
+func numberRows(items []contract.MOMItem) []printRow {
+	out := make([]printRow, 0, len(items))
+	for i, it := range items {
+		out = append(out, printRow{N: i + 1, Title: it.Title, Description: it.Description})
 	}
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", `attachment; filename="minutes-of-meeting.pdf"`)
-	_, _ = w.Write(data)
+	return out
 }
 
 // momFromForm reconstructs a MOM from the editable form. Discussion / follow-up
 // rows arrive as parallel arrays; blank rows are dropped.
 func momFromForm(r *http.Request) contract.MOM {
 	return contract.MOM{
-		DateTime:    strings.TrimSpace(r.PostFormValue("date_time")),
+		DateTime:    formatMeetingDateTime(r.PostFormValue("date_time")),
 		Location:    strings.TrimSpace(r.PostFormValue("location")),
 		Purpose:     strings.TrimSpace(r.PostFormValue("purpose")),
 		Attendees:   splitNonEmptyLines(r.PostFormValue("attendees")),
@@ -137,6 +157,50 @@ func zipItems(titles, descs []string) []contract.MOMItem {
 	return items
 }
 
+// formatMeetingDateTime converts the HTML datetime-local value
+// ("2006-01-02T15:04") to the template's "DD-MM-YYYY / HH.MM WIB" form. Anything
+// it can't parse (already-formatted or free text) passes through unchanged.
+func formatMeetingDateTime(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	for _, layout := range []string{"2006-01-02T15:04", "2006-01-02T15:04:05"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.Format("02-01-2006") + " / " + t.Format("15.04") + " WIB"
+		}
+	}
+	return s
+}
+
+// toDateTimeLocal best-effort parses a stored DateTime back into the
+// "2006-01-02T15:04" the datetime-local input needs to pre-fill. Returns "" if it
+// can't (so the user just picks it).
+func toDateTimeLocal(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	for _, layout := range []string{
+		"02-01-2006 / 15.04 WIB", "02-01-2006 / 15.04", "2006-01-02T15:04",
+		"02-01-2006 15.04", "02-01-2006", "2006-01-02",
+	} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.Format("2006-01-02T15:04")
+		}
+	}
+	return ""
+}
+
+// meetingDateOnly returns just the date part of a "DD-MM-YYYY / HH.MM WIB" string
+// (the footer shows date only, matching the template).
+func meetingDateOnly(s string) string {
+	if i := strings.Index(s, " / "); i >= 0 {
+		return strings.TrimSpace(s[:i])
+	}
+	return strings.TrimSpace(s)
+}
+
 func splitNonEmptyLines(s string) []string {
 	var out []string
 	for _, ln := range strings.Split(s, "\n") {
@@ -161,15 +225,16 @@ func momResultView(res contract.MOMResult, source string) map[string]any {
 		follow = []contract.MOMItem{{}}
 	}
 	return map[string]any{
-		"Source":      source,
-		"DateTime":    m.DateTime,
-		"Location":    m.Location,
-		"Purpose":     m.Purpose,
-		"Attendees":   strings.Join(m.Attendees, "\n"),
-		"PreparedBy":  m.PreparedBy,
-		"Language":    m.Language,
-		"Discussions": disc,
-		"FollowUps":   follow,
-		"Transcript":  res.Transcript,
+		"Source":        source,
+		"DateTime":      m.DateTime,
+		"DateTimeLocal": toDateTimeLocal(m.DateTime),
+		"Location":      m.Location,
+		"Purpose":       m.Purpose,
+		"Attendees":     strings.Join(m.Attendees, "\n"),
+		"PreparedBy":    m.PreparedBy,
+		"Language":      m.Language,
+		"Discussions":   disc,
+		"FollowUps":     follow,
+		"Transcript":    res.Transcript,
 	}
 }

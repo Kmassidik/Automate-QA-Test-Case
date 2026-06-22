@@ -92,7 +92,7 @@ func (s *Server) Routes() http.Handler {
 	// PM tab — Minutes of Meeting (audio -> transcribe -> minutes -> PDF).
 	gated.HandleFunc("GET /pm", s.handlePM)
 	gated.HandleFunc("POST /pm/process", s.handlePMProcess)
-	gated.HandleFunc("POST /pm/export.pdf", s.handlePMExport)
+	gated.HandleFunc("POST /pm/print", s.handlePMPrint)
 	mux.Handle("/", s.access.Middleware(gated))
 
 	return logRequests(s.log, mux)
