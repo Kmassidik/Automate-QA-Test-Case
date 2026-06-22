@@ -46,9 +46,10 @@ func (s *Server) handlePMProcess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := contract.GenerateRequest{
-		Model:     s.getActiveModel(),
-		AudioPath: tmp,
-		AudioName: hdr.Filename,
+		Model:       s.getActiveModel(),
+		AudioPath:   tmp,
+		AudioName:   hdr.Filename,
+		MOMLanguage: r.FormValue("language_override"), // "Auto"/"Indonesian"/"English"
 	}
 	job, err := s.q.Submit(queue.KindMOM, req)
 	if err != nil {

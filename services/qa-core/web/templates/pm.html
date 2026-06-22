@@ -58,6 +58,14 @@
         <label for="audio">Meeting recording <span class="hint">(mp3 · m4a · wav · ogg — one file)</span></label>
         <input type="file" id="audio" name="audio" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac,.flac" required>
       </div>
+      <div class="field" style="max-width:280px;">
+        <label for="language_override">Minutes language</label>
+        <select id="language_override" name="language_override">
+          <option value="Auto" selected>Auto (match the audio)</option>
+          <option value="Indonesian">Indonesian</option>
+          <option value="English">English</option>
+        </select>
+      </div>
       <div class="btn-row">
         <button type="submit" id="pm-go">Create minutes →</button>
         <span class="hint">Transcription + summary runs on your own machine. A long recording can take a few minutes.</span>
