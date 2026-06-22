@@ -54,12 +54,12 @@ final minutes → editable form
 
 **Why it scales**
 
-| Problem today        | Map-reduce fix                                    |
-|----------------------|---------------------------------------------------|
-| Context overflow     | Each chunk fits the window — a 3-hr meeting is just more chunks |
-| Under-extraction     | Every chunk is fully attended → Follow-Up actually fills in |
-| Fragile big JSON     | Each call's output is small → reliable JSON, fewer retries |
-| No progress          | Reuse `Progress` + SSE → "chunk 4 of 8" live      |
+| Problem today    | Map-reduce fix                                                  |
+| ---------------- | --------------------------------------------------------------- |
+| Context overflow | Each chunk fits the window — a 3-hr meeting is just more chunks |
+| Under-extraction | Every chunk is fully attended → Follow-Up actually fills in     |
+| Fragile big JSON | Each call's output is small → reliable JSON, fewer retries      |
+| No progress      | Reuse `Progress` + SSE → "chunk 4 of 8" live                    |
 
 ---
 
@@ -84,7 +84,7 @@ data/mom-jobs/<jobID>/
 ### Cleanup — belt and suspenders (no junk, ever)
 
 1. **`defer os.RemoveAll(jobDir)`** in the runner → removed on success, error,
-   panic *and* timeout.
+   panic _and_ timeout.
 2. **Boot-time sweep** → on startup, delete any leftover `data/mom-jobs/*` (covers
    the rare case where the process was killed mid-job before the defer ran).
 
@@ -103,7 +103,7 @@ Together these guarantee orphan files never accumulate, even after a crash.
   so the user sees per-chunk progress over SSE. It owns the queue + temp upload
   lifecycle; qa-ai stays stateless per request.
 
-(Alternative: keep the whole loop *inside* qa-ai's `/mom` for simplicity, at the
+(Alternative: keep the whole loop _inside_ qa-ai's `/mom` for simplicity, at the
 cost of opaque progress. Decide when we build it.)
 
 ---
@@ -117,10 +117,16 @@ cost of opaque progress. Decide when we build it.)
 
 ---
 
-## Open items (separate from scaling)
+## Decisions (answered) — separate from scaling
 
-1. **Language** — Indonesian audio currently yields English minutes. Fix: capture
-   whisper's detected language and instruct the model to write in it explicitly
-   (don't rely on the small model inferring "same language").
-2. **Stronger Follow-Up / action-item extraction.**
-3. **Deploy to the Mac** when it's back online (install whisper + the new binaries).
+1. **Language → auto-detect per recording.** The team uses **both Indonesian and
+   English**, so don't hardcode a language. whisper tags each file's language
+   (`id`/`en`); capture that tag and instruct the model *"write the minutes in
+   {detected language}"* (don't rely on the small model inferring it). Add a small
+   **`Auto / Indonesian / English` override** in the UI for wrong guesses or
+   code-switched meetings; default `Auto`.
+2. **Stronger Follow-Up / action-item extraction → yes.** Build it into the
+   map-reduce extract prompt (explicitly hunt action items / decisions / next steps
+   / owners per chunk; dedupe in reduce). Chunking already helps a lot here.
+3. **Deploy to the Mac → deferred.** Keep running on the laptop for now
+   (whisper.cpp + ffmpeg + qwen2.5:3b already installed there).
