@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -12,26 +13,19 @@ import (
 	"qa-ai/internal/mom"
 )
 
-// maxAudioBytes caps the upload (meeting recordings can be large, but bound it so
-// a stray huge file can't exhaust disk). ~200 MB covers a multi-hour compressed
-// recording.
+// maxAudioBytes caps the upload (~200 MB covers a multi-hour compressed recording).
 const maxAudioBytes = 200 << 20
 
-// handleMOM is the PM tab's worker endpoint: a multipart upload with an "audio"
-// file (and optional "model" field). It transcribes the audio (whisper.cpp) then
-// generates Minutes of Meeting (Ollama), returning both the structured MOM and the
-// raw transcript. One request at a time — qa-core owns the queue/serialisation.
-func (s *Server) handleMOM(w http.ResponseWriter, r *http.Request) {
-	if s.tr == nil || s.momGen == nil {
+// handleTranscribe is the first MOM stage: a multipart "audio" upload -> transcript
+// text + detected language (whisper.cpp). No LLM needed, so it doesn't gate on
+// model readiness.
+func (s *Server) handleTranscribe(w http.ResponseWriter, r *http.Request) {
+	if s.tr == nil {
 		writeJSON(w, http.StatusNotImplemented, map[string]any{
-			"error": "transcription is not configured on this qa-ai instance (set WHISPER_MODEL)",
+			"error": "transcription is not configured (set WHISPER_MODEL)",
 		})
 		return
 	}
-	if !s.gateReady(w) { // model must be loaded before we bother transcribing
-		return
-	}
-
 	r.Body = http.MaxBytesReader(w, r.Body, maxAudioBytes+(1<<20))
 	if err := r.ParseMultipartForm(16 << 20); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid upload: " + err.Error()})
@@ -57,32 +51,64 @@ func (s *Server) handleMOM(w http.ResponseWriter, r *http.Request) {
 	}
 	defer os.Remove(tmp)
 
-	model := r.FormValue("model")
-
 	start := time.Now()
-	transcript, err := s.tr.Transcribe(r.Context(), tmp)
+	transcript, lang, err := s.tr.Transcribe(r.Context(), tmp)
 	if err != nil {
-		s.log.Error("mom transcribe failed", "err", err, "dur", time.Since(start))
+		s.log.Error("transcribe failed", "err", err, "dur", time.Since(start))
 		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "transcription failed: " + err.Error()})
 		return
 	}
-	sttDur := time.Since(start)
+	s.log.Info("transcribe ok", "backend", s.tr.Name(), "lang", lang, "chars", len(transcript), "dur", time.Since(start))
+	writeJSON(w, http.StatusOK, contract.TranscribeResult{Transcript: transcript, Language: lang})
+}
 
-	genStart := time.Now()
-	minutes, err := s.momGen.Generate(r.Context(), model, transcript)
-	if err != nil {
-		status := http.StatusBadGateway
-		if errors.Is(err, mom.ErrExhausted) {
-			status = http.StatusUnprocessableEntity
-		}
-		s.log.Error("mom generate failed", "err", err, "dur", time.Since(genStart))
-		writeJSON(w, status, map[string]any{"error": "minutes generation failed: " + err.Error()})
+// handleMOMExtract is the MAP stage: one transcript chunk -> partial notes.
+func (s *Server) handleMOMExtract(w http.ResponseWriter, r *http.Request) {
+	var req contract.ExtractRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request body: " + err.Error()})
 		return
 	}
+	if !s.gateReady(w) {
+		return
+	}
+	start := time.Now()
+	out, err := s.momGen.Extract(r.Context(), req.Model, req.Language, req.Chunk)
+	if err != nil {
+		s.writeMOMErr(w, "mom:extract", err, start)
+		return
+	}
+	s.log.Info("mom extract ok", "dur", time.Since(start), "discussions", len(out.Discussions), "follow_ups", len(out.FollowUps))
+	writeJSON(w, http.StatusOK, out)
+}
 
-	s.log.Info("mom ok", "stt", s.tr.Name(), "stt_dur", sttDur, "gen_dur", time.Since(genStart),
-		"discussions", len(minutes.Discussions), "follow_ups", len(minutes.FollowUps))
-	writeJSON(w, http.StatusOK, contract.MOMResult{MOM: minutes, Transcript: transcript})
+// handleMOMConsolidate is the REDUCE stage: all partials -> final MOM.
+func (s *Server) handleMOMConsolidate(w http.ResponseWriter, r *http.Request) {
+	var req contract.ConsolidateRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<20)).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid request body: " + err.Error()})
+		return
+	}
+	if !s.gateReady(w) {
+		return
+	}
+	start := time.Now()
+	out, err := s.momGen.Consolidate(r.Context(), req.Model, req.Language, req.Partials)
+	if err != nil {
+		s.writeMOMErr(w, "mom:consolidate", err, start)
+		return
+	}
+	s.log.Info("mom consolidate ok", "dur", time.Since(start), "discussions", len(out.Discussions), "follow_ups", len(out.FollowUps))
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) writeMOMErr(w http.ResponseWriter, op string, err error, start time.Time) {
+	status := http.StatusBadGateway
+	if errors.Is(err, mom.ErrExhausted) {
+		status = http.StatusUnprocessableEntity
+	}
+	s.log.Error(op+" failed", "err", err, "dur", time.Since(start))
+	writeJSON(w, status, map[string]any{"error": err.Error()})
 }
 
 // saveUpload streams the multipart file to a temp file, preserving its extension

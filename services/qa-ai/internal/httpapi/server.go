@@ -43,7 +43,9 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /generate", s.handleGenerate)
 	mux.HandleFunc("POST /validate", s.handleValidate)
 	mux.HandleFunc("POST /stage", s.handleStage)
-	mux.HandleFunc("POST /mom", s.handleMOM)
+	mux.HandleFunc("POST /transcribe", s.handleTranscribe)
+	mux.HandleFunc("POST /mom/extract", s.handleMOMExtract)
+	mux.HandleFunc("POST /mom/consolidate", s.handleMOMConsolidate)
 	return mux
 }
 

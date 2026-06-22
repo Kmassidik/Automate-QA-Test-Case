@@ -8,6 +8,7 @@ package transcribe
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,9 +16,10 @@ import (
 	"strings"
 )
 
-// Transcriber converts an audio file at audioPath into a single transcript string.
+// Transcriber converts an audio file into a transcript plus the detected language
+// code (e.g. "id", "en"; "" if unknown).
 type Transcriber interface {
-	Transcribe(ctx context.Context, audioPath string) (string, error)
+	Transcribe(ctx context.Context, audioPath string) (text, language string, err error)
 	// Name is shown in logs/health so the UI can say which backend is active.
 	Name() string
 }
@@ -35,14 +37,15 @@ type WhisperCLI struct {
 func (w WhisperCLI) Name() string { return "whisper.cpp (" + filepath.Base(w.ModelPath) + ")" }
 
 // Transcribe normalises the audio to 16 kHz mono WAV, runs whisper.cpp with
-// automatic language detection, and returns the cleaned transcript text.
-func (w WhisperCLI) Transcribe(ctx context.Context, audioPath string) (string, error) {
+// automatic language detection, and returns the transcript text + detected
+// language code.
+func (w WhisperCLI) Transcribe(ctx context.Context, audioPath string) (string, string, error) {
 	if strings.TrimSpace(w.ModelPath) == "" {
-		return "", fmt.Errorf("whisper model path not configured (set WHISPER_MODEL)")
+		return "", "", fmt.Errorf("whisper model path not configured (set WHISPER_MODEL)")
 	}
 	dir, err := os.MkdirTemp(w.WorkDir, "mom-stt-")
 	if err != nil {
-		return "", fmt.Errorf("temp dir: %w", err)
+		return "", "", fmt.Errorf("temp dir: %w", err)
 	}
 	defer os.RemoveAll(dir)
 
@@ -51,25 +54,44 @@ func (w WhisperCLI) Transcribe(ctx context.Context, audioPath string) (string, e
 	// what whisper.cpp wants; ffmpeg handles mp3/m4a/wav/ogg/etc. transparently.
 	if out, err := run(ctx, w.ffmpeg(), "-y", "-i", audioPath,
 		"-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav); err != nil {
-		return "", fmt.Errorf("ffmpeg convert: %w (%s)", err, out)
+		return "", "", fmt.Errorf("ffmpeg convert: %w (%s)", err, out)
 	}
 
 	outPrefix := filepath.Join(dir, "out")
-	// -l auto detects language; -otxt writes <prefix>.txt; -nt strips timestamps.
+	// -l auto detects language; -otxt writes <prefix>.txt; -oj writes <prefix>.json
+	// (which carries the detected language); -nt strips inline timestamps.
 	if out, err := run(ctx, w.whisper(), "-m", w.ModelPath, "-f", wav,
-		"-l", "auto", "-otxt", "-of", outPrefix, "-nt"); err != nil {
-		return "", fmt.Errorf("whisper transcribe: %w (%s)", err, out)
+		"-l", "auto", "-otxt", "-oj", "-of", outPrefix, "-nt"); err != nil {
+		return "", "", fmt.Errorf("whisper transcribe: %w (%s)", err, out)
 	}
 
 	txt, err := os.ReadFile(outPrefix + ".txt")
 	if err != nil {
-		return "", fmt.Errorf("read transcript: %w", err)
+		return "", "", fmt.Errorf("read transcript: %w", err)
 	}
 	t := strings.TrimSpace(string(txt))
 	if t == "" {
-		return "", fmt.Errorf("empty transcript (no speech detected?)")
+		return "", "", fmt.Errorf("empty transcript (no speech detected?)")
 	}
-	return t, nil
+	return t, readWhisperLang(outPrefix + ".json"), nil
+}
+
+// readWhisperLang pulls the detected language code from whisper.cpp's JSON output
+// (result.language). Best-effort: "" if anything goes wrong.
+func readWhisperLang(jsonPath string) string {
+	b, err := os.ReadFile(jsonPath)
+	if err != nil {
+		return ""
+	}
+	var doc struct {
+		Result struct {
+			Language string `json:"language"`
+		} `json:"result"`
+	}
+	if json.Unmarshal(b, &doc) != nil {
+		return ""
+	}
+	return doc.Result.Language
 }
 
 func (w WhisperCLI) ffmpeg() string {
@@ -108,11 +130,11 @@ type Stub struct{ Text string }
 
 func (s Stub) Name() string { return "stub" }
 
-func (s Stub) Transcribe(_ context.Context, _ string) (string, error) {
+func (s Stub) Transcribe(_ context.Context, _ string) (string, string, error) {
 	if s.Text != "" {
-		return s.Text, nil
+		return s.Text, "id", nil
 	}
 	return "Rapat membahas progres tim AI. Mas Miftah, Mas Sultan, dan Kurnia hadir. " +
 		"Dibahas penyesuaian Dashboard Agent termasuk action item Hide Agent, tooltip pada mode sistem, " +
-		"dan peningkatan readability chat. Tindak lanjut: editing video tutorial dan kebutuhan AI engineer.", nil
+		"dan peningkatan readability chat. Tindak lanjut: editing video tutorial dan kebutuhan AI engineer.", "id", nil
 }

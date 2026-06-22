@@ -30,9 +30,39 @@ type MOMItem struct {
 	Description string `json:"description"`
 }
 
-// MOMResult is what qa-ai returns from POST /mom: the structured minutes plus the
-// raw transcript (handy for the UI to show "from this transcript" / debugging).
+// MOMResult is the final minutes plus the raw transcript (shown in the UI).
 type MOMResult struct {
 	MOM        MOM    `json:"mom"`
 	Transcript string `json:"transcript"`
+}
+
+// ----- Scalable map-reduce stages (qa-core drives these) -----
+
+// TranscribeResult is POST /transcribe output: the text plus whisper's detected
+// language code (e.g. "id", "en").
+type TranscribeResult struct {
+	Transcript string `json:"transcript"`
+	Language   string `json:"language"`
+}
+
+// MOMExtract is the partial pulled from ONE transcript chunk (the MAP step).
+type MOMExtract struct {
+	Attendees   []string  `json:"attendees"`
+	Discussions []MOMItem `json:"discussions"`
+	FollowUps   []MOMItem `json:"follow_ups"`
+}
+
+// ExtractRequest asks qa-ai to extract notes from one chunk. Language is the
+// resolved output-language NAME ("Indonesian"/"English"/"" = match source).
+type ExtractRequest struct {
+	Chunk    string `json:"chunk"`
+	Language string `json:"language"`
+	Model    string `json:"model,omitempty"`
+}
+
+// ConsolidateRequest asks qa-ai to merge all chunk partials into the final MOM.
+type ConsolidateRequest struct {
+	Partials []MOMExtract `json:"partials"`
+	Language string       `json:"language"`
+	Model    string       `json:"model,omitempty"`
 }
