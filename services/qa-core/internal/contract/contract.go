@@ -31,9 +31,11 @@ type GenerateRequest struct {
 
 	// PM tab (KindMOM jobs only): the uploaded audio is saved to a temp file and
 	// its path carried here so the job can run through the shared queue. json:"-"
-	// keeps these internal — they're never sent to qa-ai.
-	AudioPath string `json:"-"`
-	AudioName string `json:"-"`
+	// keeps these internal — they're never sent to qa-ai. MOMLanguage is the user's
+	// output-language choice ("", "Auto", "Indonesian", "English").
+	AudioPath   string `json:"-"`
+	AudioName   string `json:"-"`
+	MOMLanguage string `json:"-"`
 }
 
 // CasesPerTypeOrDefault returns the per-nature case cap (default 3, ceiling 20 —

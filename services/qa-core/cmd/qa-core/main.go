@@ -22,6 +22,7 @@ import (
 	"qa-core/internal/contract"
 	"qa-core/internal/eta"
 	"qa-core/internal/export"
+	"qa-core/internal/momorch"
 	"qa-core/internal/options"
 	"qa-core/internal/orchestrator"
 	"qa-core/internal/queue"
@@ -41,6 +42,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Boot sweep: clear any leftover MOM scratch dirs from a job that was killed
+	// before its deferred cleanup ran, so working files never accumulate as junk.
+	if err := os.RemoveAll(cfg.momWorkDir); err != nil {
+		log.Warn("could not sweep MOM work dir", "path", cfg.momWorkDir, "err", err)
+	}
+
 	// Wiring: broadcaster <- queue OnChange; queue runner -> qa-ai client.
 	bc := sse.NewBroadcaster()
 	ai := aiclient.New(cfg.aiURL, cfg.stageTimeout) // per qa-ai call (one stage)
@@ -55,7 +62,7 @@ func main() {
 		ETA:        etaTracker,
 		Runner:     orchestrator.GenRunner(ai, snapshotter(cfg.snapshotDir, log), tlog), // batched, per-AC, step-by-step + timing
 		Validator:  validateRunner(ai),
-		MOMRunner:  momRunner(ai), // PM tab: audio -> transcribe -> minutes
+		MOMRunner:  momorch.MOMRunner(ai, cfg.momWorkDir), // PM tab: transcribe -> chunk -> map -> reduce
 		OnChange:   bc.Publish,
 	})
 	q.Start(ctx)
@@ -152,33 +159,6 @@ func validateRunner(ai *aiclient.Client) queue.Runner {
 	}
 }
 
-// momRunner is the PM tab's queue runner: it opens the uploaded audio (saved to a
-// temp file by the handler), sends it to qa-ai (transcribe -> minutes), and
-// returns the minutes inside Result.MOM. The temp file is removed when done.
-// Running through the queue means a MOM job serialises with QA jobs — one heavy
-// task on the local GPU at a time.
-func momRunner(ai *aiclient.Client) queue.Runner {
-	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
-		defer os.Remove(req.AudioPath)
-		p.Plan("Transcribe audio & write minutes")
-		p.Start(0)
-		f, err := os.Open(req.AudioPath)
-		if err != nil {
-			p.Fail(0, "could not open the upload")
-			return contract.Result{}, err
-		}
-		defer f.Close()
-		res, err := ai.MOM(ctx, req.AudioName, req.Model, f)
-		if err != nil {
-			p.Fail(0, err.Error())
-			return contract.Result{}, err
-		}
-		cp := res
-		p.Done(0, fmt.Sprintf("%d discussion points", len(res.MOM.Discussions)))
-		return contract.Result{MOM: &cp}, nil
-	}
-}
-
 type config struct {
 	addr         string
 	aiURL        string
@@ -190,6 +170,7 @@ type config struct {
 	snapshotDir  string
 	optionsFile  string
 	timingLog    string
+	momWorkDir   string // per-job MOM scratch (transcript/chunks/partials), swept on boot
 }
 
 func loadConfig() (config, error) {
@@ -209,6 +190,7 @@ func loadConfig() (config, error) {
 		snapshotDir:  os.Getenv("SNAPSHOT_DIR"),                  // empty => in-memory only
 		optionsFile:  env("OPTIONS_FILE", "./data/options.json"), // editable form vocabularies
 		timingLog:    env("TIMING_LOG", "./data/timing.log"),     // per-stage timing for tuning ("" disables)
+		momWorkDir:   env("MOM_WORK_DIR", "./data/mom-jobs"),     // per-job MOM scratch dirs
 	}
 	if c.accessCode == "" {
 		return c, errors.New("ACCESS_CODE is required (set it in .env or the deploy environment)")
