@@ -28,6 +28,12 @@ type GenerateRequest struct {
 	// CasesPerType caps how many test cases the model writes for EACH case
 	// nature, per acceptance criterion (user-controlled volume/speed dial).
 	CasesPerType int `json:"cases_per_type,omitempty"`
+
+	// PM tab (KindMOM jobs only): the uploaded audio is saved to a temp file and
+	// its path carried here so the job can run through the shared queue. json:"-"
+	// keeps these internal — they're never sent to qa-ai.
+	AudioPath string `json:"-"`
+	AudioName string `json:"-"`
 }
 
 // CasesPerTypeOrDefault returns the per-nature case cap (default 3, ceiling 20 —
@@ -78,6 +84,10 @@ type Result struct {
 	RequirementHealth   Score                 `json:"requirement_health"`
 	TraceabilityScore   Score                 `json:"traceability_score"`
 	MissingAreas        []string              `json:"missing_areas"`
+
+	// MOM is set only by KindMOM jobs (PM tab); nil for QA jobs. Lets the shared
+	// queue carry minutes in the same *Result it stores for every job.
+	MOM *MOMResult `json:"mom,omitempty"`
 }
 
 type RequirementFeature struct {

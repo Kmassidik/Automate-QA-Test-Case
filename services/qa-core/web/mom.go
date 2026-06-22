@@ -1,11 +1,15 @@
 package web
 
 import (
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"qa-core/internal/contract"
 	"qa-core/internal/export"
+	"qa-core/internal/queue"
 )
 
 // handlePM renders the PM tab: upload one audio file -> Minutes of Meeting.
@@ -20,9 +24,11 @@ func (s *Server) handlePM(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handlePMProcess receives the uploaded audio, sends it to qa-ai (transcribe ->
-// minutes), and swaps in the EDITABLE minutes form. htmx target, so the page
-// frame (nav/header) stays put. Processing is synchronous (it can take minutes).
+// handlePMProcess receives the uploaded audio and enqueues a KindMOM job on the
+// shared single-worker queue — so a meeting transcription serialises with QA
+// generations and other uploads (one-at-a-time on the local GPU). It returns the
+// waiting card; the SSE flow swaps in the editable minutes via /result/{id} when
+// the job finishes, exactly like the QA tab.
 func (s *Server) handlePMProcess(w http.ResponseWriter, r *http.Request) {
 	file, hdr, err := r.FormFile("audio")
 	if err != nil {
@@ -31,12 +37,47 @@ func (s *Server) handlePMProcess(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	res, err := s.ai.MOM(r.Context(), hdr.Filename, s.getActiveModel(), file)
+	// Persist the upload: the job may wait behind others, so the bytes must
+	// outlive this request. The MOM runner removes the file when it's done.
+	tmp, err := saveAudioUpload(file, hdr.Filename)
 	if err != nil {
-		s.renderPartialError(w, "Could not create the minutes: "+err.Error())
+		s.renderPartialError(w, "Could not save the upload: "+err.Error())
 		return
 	}
-	s.tmpl.render(w, "pm_result.html", momResultView(res, hdr.Filename))
+
+	req := contract.GenerateRequest{
+		Model:     s.getActiveModel(),
+		AudioPath: tmp,
+		AudioName: hdr.Filename,
+	}
+	job, err := s.q.Submit(queue.KindMOM, req)
+	if err != nil {
+		os.Remove(tmp)
+		s.renderPartialError(w, err.Error())
+		return
+	}
+
+	view, _ := s.q.JobView(job.ID)
+	s.tmpl.render(w, "waiting.html", map[string]any{"Job": jobView(view)})
+}
+
+// saveAudioUpload streams the upload to a temp file, keeping the extension so
+// ffmpeg can detect the container format.
+func saveAudioUpload(src io.Reader, name string) (string, error) {
+	ext := filepath.Ext(name)
+	if ext == "" {
+		ext = ".bin"
+	}
+	dst, err := os.CreateTemp("", "mom-audio-*"+ext)
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+	if _, err := io.Copy(dst, src); err != nil {
+		os.Remove(dst.Name())
+		return "", err
+	}
+	return dst.Name(), nil
 }
 
 // handlePMExport builds a PDF from the EDITED form values (not the raw AI output)

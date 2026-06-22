@@ -23,6 +23,8 @@ type MOMItem struct {
 }
 
 // MOMResult is qa-ai's POST /mom response: the minutes plus the raw transcript.
+// A KindMOM queue job stores this on Result.MOM (the queue keeps *Result for
+// every job kind); QA jobs leave Result.MOM nil.
 type MOMResult struct {
 	MOM        MOM    `json:"mom"`
 	Transcript string `json:"transcript"`

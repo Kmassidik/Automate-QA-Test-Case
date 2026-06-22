@@ -250,6 +250,14 @@ func (s *Server) handleResult(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
+		if job.Kind == queue.KindMOM {
+			if job.Result == nil || job.Result.MOM == nil {
+				s.renderPartialError(w, "Minutes not available.")
+				return
+			}
+			s.tmpl.render(w, "pm_result.html", momResultView(*job.Result.MOM, job.Req.AudioName))
+			return
+		}
 		opt := export.Options{PriorityScheme: job.Req.PriorityScheme, Requirement: job.Req.Requirement}
 		header, rows := export.QARepositoryRows(*job.Result, opt)
 		rtmHeader, rtmRows := export.RTMRows(*job.Result)

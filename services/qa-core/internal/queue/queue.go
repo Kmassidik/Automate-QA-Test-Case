@@ -34,6 +34,7 @@ type Kind string
 const (
 	KindGenerate Kind = "generate"
 	KindValidate Kind = "validate"
+	KindMOM      Kind = "mom" // PM tab: audio -> transcript -> minutes
 )
 
 // StepState is the status of one step in a job's plan (the 1..N checklist a
@@ -155,6 +156,7 @@ type Manager struct {
 	eta        *eta.Tracker
 	runner     Runner
 	validator  Runner
+	momRunner  Runner
 	genTimeout time.Duration
 	retain     int
 	onChange   func()
@@ -167,6 +169,7 @@ type Config struct {
 	ETA        *eta.Tracker
 	Runner     Runner // handles KindGenerate
 	Validator  Runner // handles KindValidate
+	MOMRunner  Runner // handles KindMOM (audio -> minutes)
 	OnChange   func() // invoked after every state transition (drives SSE)
 }
 
@@ -186,6 +189,7 @@ func New(cfg Config) *Manager {
 		eta:        cfg.ETA,
 		runner:     cfg.Runner,
 		validator:  cfg.Validator,
+		momRunner:  cfg.MOMRunner,
 		genTimeout: cfg.GenTimeout,
 		retain:     cfg.Retain,
 		onChange:   cfg.OnChange,
@@ -250,8 +254,11 @@ func (m *Manager) runOne(ctx context.Context, job *Job) {
 	m.onChange()
 
 	run := m.runner
-	if job.Kind == KindValidate && m.validator != nil {
+	switch {
+	case job.Kind == KindValidate && m.validator != nil:
 		run = m.validator
+	case job.Kind == KindMOM && m.momRunner != nil:
+		run = m.momRunner
 	}
 
 	prog := m.NewProgress(job)

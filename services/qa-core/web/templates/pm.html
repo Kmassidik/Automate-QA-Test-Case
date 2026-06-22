@@ -51,7 +51,7 @@
 
   <div class="card">
     <h2>Upload audio</h2>
-    <form hx-post="/pm/process" hx-target="#pm-output" hx-swap="innerHTML"
+    <form hx-post="/pm/process" hx-target="#panel" hx-swap="innerHTML"
           hx-encoding="multipart/form-data" hx-indicator="#pm-processing"
           hx-disabled-elt="#pm-go">
       <div class="field">
@@ -65,8 +65,8 @@
     </form>
   </div>
 
-  <!-- htmx swaps the editable minutes (or an error) in here. -->
-  <div id="pm-output"></div>
+  <!-- htmx swaps the waiting card, then the editable minutes (or an error) here. -->
+  <div id="panel"></div>
 </div>
 
 <!-- Full-screen processing overlay (shown only while the request is in flight). -->

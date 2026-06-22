@@ -55,6 +55,7 @@ func main() {
 		ETA:        etaTracker,
 		Runner:     orchestrator.GenRunner(ai, snapshotter(cfg.snapshotDir, log), tlog), // batched, per-AC, step-by-step + timing
 		Validator:  validateRunner(ai),
+		MOMRunner:  momRunner(ai), // PM tab: audio -> transcribe -> minutes
 		OnChange:   bc.Publish,
 	})
 	q.Start(ctx)
@@ -148,6 +149,33 @@ func validateRunner(ai *aiclient.Client) queue.Runner {
 		}
 		p.Done(0, fmt.Sprintf("%d acceptance criteria", len(res.AcceptanceCriteria)))
 		return res, nil
+	}
+}
+
+// momRunner is the PM tab's queue runner: it opens the uploaded audio (saved to a
+// temp file by the handler), sends it to qa-ai (transcribe -> minutes), and
+// returns the minutes inside Result.MOM. The temp file is removed when done.
+// Running through the queue means a MOM job serialises with QA jobs — one heavy
+// task on the local GPU at a time.
+func momRunner(ai *aiclient.Client) queue.Runner {
+	return func(ctx context.Context, req contract.GenerateRequest, p *queue.Progress) (contract.Result, error) {
+		defer os.Remove(req.AudioPath)
+		p.Plan("Transcribe audio & write minutes")
+		p.Start(0)
+		f, err := os.Open(req.AudioPath)
+		if err != nil {
+			p.Fail(0, "could not open the upload")
+			return contract.Result{}, err
+		}
+		defer f.Close()
+		res, err := ai.MOM(ctx, req.AudioName, req.Model, f)
+		if err != nil {
+			p.Fail(0, err.Error())
+			return contract.Result{}, err
+		}
+		cp := res
+		p.Done(0, fmt.Sprintf("%d discussion points", len(res.MOM.Discussions)))
+		return contract.Result{MOM: &cp}, nil
 	}
 }
 
